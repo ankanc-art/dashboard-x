@@ -1883,12 +1883,15 @@ function clearAndReload(){
 })();
 </script>
 
-<script type="module">
-import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import{getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,signOut as fbSignOut,onAuthStateChanged,setPersistence,browserLocalPersistence,indexedDBLocalPersistence}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import{getFirestore,doc,setDoc,onSnapshot}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-const FB={
+<!-- Firebase compat SDK (works in regular script, no module scope issues) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+// ── Firebase init (runs in same scope as main app) ────────────────────────
+const FB_CONFIG = {
   apiKey:"AIzaSyCXQKH1TF3qdOGUQzDPCJ73XYOwMcM89xM",
   authDomain:"dashboard-00-4385d.firebaseapp.com",
   projectId:"dashboard-00-4385d",
@@ -1897,197 +1900,178 @@ const FB={
   appId:"1:762859100454:web:dea2e8c54768dd0bbbc9e7"
 };
 
-const app=initializeApp(FB);
-const auth=getAuth(app);
-const db=getFirestore(app);
+firebase.initializeApp(FB_CONFIG);
+const fbAuth = firebase.auth();
+const fbDb   = firebase.firestore();
 
-let unsub=null;
-let _uid=null;
-let _authHandled=false; // prevent double-handling
+let _fbUid   = null;
+let _fbUnsub = null;
+let _authHandled = false;
 
-// Detect iOS Safari (needs redirect instead of popup)
-const isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
-const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-const useRedirect=isIOS||isSafari;
+// Detect iOS/Safari for redirect vs popup decision
+const _isIOS    = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+const _isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+const _useRedirect = _isIOS || _isSafari;
 
-// ── UI helpers ────────────────────────────────────────────────
-function showLoginScreen(msg){
-  const ov=document.getElementById('loginOverlay');
-  if(ov) ov.style.display='flex';
-  ['appSidebar','appMain','as-bar'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.style.display='none';
+// ── UI ────────────────────────────────────────────────────────
+function showLoginScreen(msg) {
+  document.getElementById('loginOverlay').style.display = 'flex';
+  ['appSidebar','appMain','as-bar'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
   });
-  const btn=document.getElementById('googleSignInBtn');
-  const btxt=document.getElementById('googleBtnTxt');
-  if(btn) btn.disabled=false;
-  if(btxt) btxt.textContent='Continue with Google';
-  if(msg){
-    const err=document.getElementById('loginErr');
-    if(err){err.style.display='block';err.textContent=msg;}
+  var btn  = document.getElementById('googleSignInBtn');
+  var btxt = document.getElementById('googleBtnTxt');
+  if (btn)  btn.disabled = false;
+  if (btxt) btxt.textContent = 'Continue with Google';
+  if (msg) {
+    var err = document.getElementById('loginErr');
+    if (err) { err.style.display = 'block'; err.textContent = msg; }
   }
 }
 
-function showApp(user){
-  _authHandled=true;
-  const ov=document.getElementById('loginOverlay');
-  if(ov) ov.style.display='none';
-  ['appSidebar','appMain','as-bar'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.style.display='flex';
-  });
-  if(user){
-    const av=document.getElementById('syncAvatar');
-    const nm=document.getElementById('syncName');
-    const su=document.getElementById('syncUser');
-    if(av) av.src=user.photoURL||'';
-    if(nm) nm.textContent=user.displayName||user.email||'';
-    if(su) su.style.display='flex';
+function showApp(user) {
+  _authHandled = true;
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('appSidebar').style.display = 'flex';
+  document.getElementById('appMain').style.display    = 'flex';
+  document.getElementById('as-bar').style.display     = 'flex';
+  if (user) {
+    var av = document.getElementById('syncAvatar');
+    var nm = document.getElementById('syncName');
+    var su = document.getElementById('syncUser');
+    if (av) av.src = user.photoURL || '';
+    if (nm) nm.textContent = user.displayName || user.email || '';
+    if (su) su.style.display = 'flex';
   }
 }
 
 // ── Firestore sync ────────────────────────────────────────────
-function userRef(uid){return doc(db,'users',uid,'dashboardx','data');}
+function fbUserRef(uid) {
+  return fbDb.collection('users').doc(uid).collection('dashboardx').doc('data');
+}
 
-// Helper: get app bridge (wait for main script to finish init)
-function app(){return window.__app;}
-
-function startSync(uid){
-  if(unsub){unsub();unsub=null;}
-  if(app()) app().setStatus('connecting');
-  unsub=onSnapshot(userRef(uid),snap=>{
-    const a=app();
-    if(!a) return; // app not ready yet
-    if(snap.exists()){
-      const d=snap.data();
-      if(d&&d.data){
-        // Write into the main script's data variable via the bridge
-        a.setData(d.data);
-        Object.keys(a.getData()).forEach(k=>a.ensureMonth(k));
+function startFbSync(uid) {
+  if (_fbUnsub) { _fbUnsub(); _fbUnsub = null; }
+  setStatus('connecting');
+  _fbUnsub = fbUserRef(uid).onSnapshot(function(snap) {
+    if (snap.exists) {
+      var d = snap.data();
+      if (d && d.data) {
+        data = d.data; // direct assignment — same scope!
+        Object.keys(data).forEach(function(k) { ensureMonth(k); });
       }
     }
-    a.ensureMonth(a.getCurMonthKey());
-    a.render();
-    a.setStatus('synced');
-    a.updateLastSaved(Date.now());
-  },err=>{
-    if(app()) app().setStatus('error','Sync error');
-    if(app()) app().showToast('⚠️ '+err.message);
+    ensureMonth(curMonthKey);
+    render();
+    setStatus('synced');
+    updateLastSaved(Date.now());
+  }, function(err) {
+    setStatus('error', 'Sync error');
+    showToast('⚠️ ' + err.message);
   });
 }
 
-window._fbSave=async function(d){
-  if(!_uid)return;
-  try{
-    await setDoc(userRef(_uid),{data:d,updatedAt:Date.now()});
-    if(app()) app().setStatus('synced');
-    if(app()) app().updateLastSaved(Date.now());
-  }catch(e){
-    if(app()) app().setStatus('error','Save failed');
-    if(app()) app().showToast('⚠️ '+e.message);
-  }
+// Called by autoSave() via window._fbSave
+window._fbSave = function(d) {
+  if (!_fbUid) return;
+  fbUserRef(_fbUid).set({ data: d, updatedAt: Date.now() })
+    .then(function() { setStatus('synced'); updateLastSaved(Date.now()); })
+    .catch(function(e) { setStatus('error','Save failed'); showToast('⚠️ ' + e.message); });
 };
 
-// ── Auth entry point: popup on desktop, redirect on iOS/Safari ─
-async function handleSignIn(){
-  const btn=document.getElementById('googleSignInBtn');
-  const btxt=document.getElementById('googleBtnTxt');
-  const err=document.getElementById('loginErr');
-  if(err) err.style.display='none';
-  if(btn) btn.disabled=true;
+// ── Sign in ───────────────────────────────────────────────────
+function doGoogleSignIn() {
+  var btn  = document.getElementById('googleSignInBtn');
+  var btxt = document.getElementById('googleBtnTxt');
+  var err  = document.getElementById('loginErr');
+  if (err)  err.style.display = 'none';
+  if (btn)  btn.disabled = true;
 
-  const prov=new GoogleAuthProvider();
+  var prov = new firebase.auth.GoogleAuthProvider();
   prov.addScope('email');
   prov.addScope('profile');
-  prov.setCustomParameters({prompt:'select_account'});
+  prov.setCustomParameters({ prompt: 'select_account' });
 
-  // Use indexedDB persistence — works on iOS Safari unlike localStorage
-  try{
-    await setPersistence(auth,indexedDBLocalPersistence);
-  }catch(e){
-    try{await setPersistence(auth,browserLocalPersistence);}catch(e2){}
-  }
+  fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
+    if (_useRedirect) {
+      if (btxt) btxt.textContent = 'Redirecting to Google…';
+      return fbAuth.signInWithRedirect(prov);
+    } else {
+      if (btxt) btxt.textContent = 'Opening Google…';
+      return fbAuth.signInWithPopup(prov).then(function(result) {
+        if (result.user) {
+          _fbUid = result.user.uid;
+          showApp(result.user);
+          startFbSync(result.user.uid);
+        }
+      });
+    }
+  }).catch(function(e) {
+    var msgs = {
+      'auth/popup-closed-by-user': 'Sign-in cancelled.',
+      'auth/cancelled-popup-request': 'Sign-in cancelled.',
+      'auth/popup-blocked': 'Popup blocked — allow popups for this site and retry.',
+      'auth/unauthorized-domain': '❌ Domain not authorised.
 
-  if(useRedirect){
-    // iOS/Safari: full page redirect (no popup, avoids ITP blocking)
-    if(btxt) btxt.textContent='Redirecting to Google…';
-    try{
-      await signInWithRedirect(auth,prov);
-    }catch(e){
-      showLoginScreen('Sign-in error: '+e.message);
-    }
-  } else {
-    // Desktop: popup (instant, no page reload)
-    if(btxt) btxt.textContent='Opening Google…';
-    try{
-      const result=await signInWithPopup(auth,prov);
-      if(result.user){
-        _uid=result.user.uid;
-        showApp(result.user);
-        startSync(result.user.uid);
-      }
-    }catch(e){
-      const msgs={
-        'auth/popup-closed-by-user':'Sign-in cancelled.',
-        'auth/cancelled-popup-request':'Sign-in cancelled.',
-        'auth/popup-blocked':'Popup blocked — please allow popups and try again.',
-        'auth/unauthorized-domain':'❌ Domain not authorised in Firebase.\n\nAdd ankanc-art.github.io to Firebase Console → Authentication → Authorised domains.',
-      };
-      showLoginScreen(msgs[e.code]||('Error: '+e.message));
-    }
-  }
+Go to Firebase Console → Authentication → Authorised domains → Add: ankanc-art.github.io',
+      'auth/network-request-failed': '❌ Network error. Check your connection.',
+    };
+    showLoginScreen(msgs[e.code] || ('Error: ' + e.message + ' (' + e.code + ')'));
+  });
 }
 
 // ── Sign out ──────────────────────────────────────────────────
-async function handleSignOut(){
-  if(unsub){unsub();unsub=null;}
-  _uid=null;
-  _authHandled=false;
-  try{await fbSignOut(auth);}catch(e){}
-  window.data={};
-  const su=document.getElementById('syncUser');
-  if(su) su.style.display='none';
+function doSignOut() {
+  if (_fbUnsub) { _fbUnsub(); _fbUnsub = null; }
+  _fbUid = null;
+  _authHandled = false;
+  fbAuth.signOut().catch(function(){});
+  data = {};
+  var su = document.getElementById('syncUser');
+  if (su) su.style.display = 'none';
   showLoginScreen();
   showToast('👋 Signed out');
 }
 
-// ── Redirect result (iOS returns here after Google auth) ───────
-// Must run BEFORE onAuthStateChanged to avoid null-flash
-getRedirectResult(auth).then(result=>{
-  if(result&&result.user){
-    _uid=result.user.uid;
+// ── Handle redirect result (iOS/Safari returning from Google) ─
+fbAuth.getRedirectResult().then(function(result) {
+  if (result && result.user) {
+    _fbUid = result.user.uid;
     showApp(result.user);
-    startSync(result.user.uid);
+    startFbSync(result.user.uid);
   }
-}).catch(e=>{
-  if(e.code==='auth/unauthorized-domain'){
-    showLoginScreen('❌ Domain not authorised in Firebase.\n\nAdd ankanc-art.github.io to Firebase Console → Authentication → Authorised domains.');
-  } else if(e.code&&e.code!=='auth/no-current-user'&&e.code!=='auth/null-user'){
-    showLoginScreen('Sign-in error: '+e.message+' ('+e.code+')');
+}).catch(function(e) {
+  if (e.code !== 'auth/no-current-user' && e.code !== 'auth/null-user') {
+    var msgs = {
+      'auth/unauthorized-domain': '❌ Domain not authorised.
+
+Add ankanc-art.github.io to Firebase Console → Authentication → Authorised domains.'
+    };
+    showLoginScreen(msgs[e.code] || ('Sign-in error: ' + e.message));
   }
 });
 
-// ── Persistent session (returning users on any device) ─────────
-onAuthStateChanged(auth,user=>{
-  if(_authHandled) return; // already handled by popup or redirect result
-  if(user){
-    _uid=user.uid;
+// ── Persistent auth state (returning users) ───────────────────
+fbAuth.onAuthStateChanged(function(user) {
+  if (_authHandled) return; // already handled above
+  if (user) {
+    _fbUid = user.uid;
     showApp(user);
-    startSync(user.uid);
+    startFbSync(user.uid);
   } else {
     showLoginScreen();
   }
 });
 
-// ── Wire buttons ──────────────────────────────────────────────
-function wireButtons(){
-  const si=document.getElementById('googleSignInBtn');
-  if(si&&!si._wired){si.addEventListener('click',handleSignIn);si._wired=true;}
-  const so=document.getElementById('signOutBtn');
-  if(so&&!so._wired){so.addEventListener('click',handleSignOut);so._wired=true;}
-}
-wireButtons();
-document.addEventListener('DOMContentLoaded',wireButtons);
+// ── Wire sign-in button (inline onclick works — same scope now) ─
+// Button already has onclick="doGoogleSignIn()" — add it back
+document.addEventListener('DOMContentLoaded', function() {
+  var btn = document.getElementById('googleSignInBtn');
+  if (btn) btn.onclick = doGoogleSignIn;
+  var sob = document.getElementById('signOutBtn');
+  if (sob) sob.onclick = doSignOut;
+});
 </script>
 
 </body>
