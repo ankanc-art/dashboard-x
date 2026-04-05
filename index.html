@@ -1873,7 +1873,7 @@ function clearAndReload(){
 
 <script type="module">
 import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import{getAuth,GoogleAuthProvider,signInWithPopup,signOut as fbSignOut,onAuthStateChanged,setPersistence,browserLocalPersistence}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import{getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,signOut as fbSignOut,onAuthStateChanged,setPersistence,browserLocalPersistence,indexedDBLocalPersistence}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import{getFirestore,doc,setDoc,onSnapshot}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const FB={
@@ -1885,14 +1885,20 @@ const FB={
   appId:"1:762859100454:web:dea2e8c54768dd0bbbc9e7"
 };
 
-const app = initializeApp(FB);
-const auth = getAuth(app);
-const db   = getFirestore(app);
+const app=initializeApp(FB);
+const auth=getAuth(app);
+const db=getFirestore(app);
 
-let unsub = null;
-let _uid  = null;
+let unsub=null;
+let _uid=null;
+let _authHandled=false; // prevent double-handling
 
-// ── UI helpers ───────────────────────────────────────────────────────────────
+// Detect iOS Safari (needs redirect instead of popup)
+const isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+const useRedirect=isIOS||isSafari;
+
+// ── UI helpers ────────────────────────────────────────────────
 function showLoginScreen(msg){
   const ov=document.getElementById('loginOverlay');
   if(ov) ov.style.display='flex';
@@ -1911,11 +1917,13 @@ function showLoginScreen(msg){
 }
 
 function showApp(user){
+  _authHandled=true;
   const ov=document.getElementById('loginOverlay');
   if(ov) ov.style.display='none';
-  document.getElementById('appSidebar').style.display='flex';
-  document.getElementById('appMain').style.display='flex';
-  document.getElementById('as-bar').style.display='flex';
+  ['appSidebar','appMain','as-bar'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display='flex';
+  });
   if(user){
     const av=document.getElementById('syncAvatar');
     const nm=document.getElementById('syncName');
@@ -1926,7 +1934,7 @@ function showApp(user){
   }
 }
 
-// ── Firestore sync ───────────────────────────────────────────────────────────
+// ── Firestore sync ────────────────────────────────────────────
 function userRef(uid){return doc(db,'users',uid,'dashboardx','data');}
 
 function startSync(uid){
@@ -1962,44 +1970,61 @@ window._fbSave=async function(d){
   }
 };
 
-// ── Sign in with POPUP ───────────────────────────────────────────────────────
+// ── Auth entry point: popup on desktop, redirect on iOS/Safari ─
 async function handleSignIn(){
   const btn=document.getElementById('googleSignInBtn');
   const btxt=document.getElementById('googleBtnTxt');
   const err=document.getElementById('loginErr');
   if(err) err.style.display='none';
   if(btn) btn.disabled=true;
-  if(btxt) btxt.textContent='Opening Google…';
+
+  const prov=new GoogleAuthProvider();
+  prov.addScope('email');
+  prov.addScope('profile');
+  prov.setCustomParameters({prompt:'select_account'});
+
+  // Use indexedDB persistence — works on iOS Safari unlike localStorage
   try{
-    // Ensure auth persists across sessions
-    await setPersistence(auth,browserLocalPersistence);
-    const prov=new GoogleAuthProvider();
-    prov.addScope('email');
-    prov.addScope('profile');
-    const result=await signInWithPopup(auth,prov);
-    // signInWithPopup resolves immediately — onAuthStateChanged fires next
-    if(result.user){
-      _uid=result.user.uid;
-      showApp(result.user);
-      startSync(result.user.uid);
-    }
+    await setPersistence(auth,indexedDBLocalPersistence);
   }catch(e){
-    const msgs={
-      'auth/popup-closed-by-user':'Sign-in cancelled.',
-      'auth/cancelled-popup-request':'Sign-in cancelled.',
-      'auth/unauthorized-domain':'❌ Domain not authorised.\n\nGo to Firebase Console → Authentication → Settings → Authorised domains → Add: ankanc-art.github.io',
-      'auth/popup-blocked':'❌ Popup was blocked by your browser.\n\nAllow popups for this site and try again.',
-      'auth/network-request-failed':'❌ Network error. Check your connection.',
-      'auth/operation-not-allowed':'❌ Google sign-in is not enabled. Enable it in Firebase Console → Authentication → Sign-in method.',
-    };
-    showLoginScreen(msgs[e.code]||('Sign-in error: '+e.message));
+    try{await setPersistence(auth,browserLocalPersistence);}catch(e2){}
+  }
+
+  if(useRedirect){
+    // iOS/Safari: full page redirect (no popup, avoids ITP blocking)
+    if(btxt) btxt.textContent='Redirecting to Google…';
+    try{
+      await signInWithRedirect(auth,prov);
+    }catch(e){
+      showLoginScreen('Sign-in error: '+e.message);
+    }
+  } else {
+    // Desktop: popup (instant, no page reload)
+    if(btxt) btxt.textContent='Opening Google…';
+    try{
+      const result=await signInWithPopup(auth,prov);
+      if(result.user){
+        _uid=result.user.uid;
+        showApp(result.user);
+        startSync(result.user.uid);
+      }
+    }catch(e){
+      const msgs={
+        'auth/popup-closed-by-user':'Sign-in cancelled.',
+        'auth/cancelled-popup-request':'Sign-in cancelled.',
+        'auth/popup-blocked':'Popup blocked — please allow popups and try again.',
+        'auth/unauthorized-domain':'❌ Domain not authorised in Firebase.\n\nAdd ankanc-art.github.io to Firebase Console → Authentication → Authorised domains.',
+      };
+      showLoginScreen(msgs[e.code]||('Error: '+e.message));
+    }
   }
 }
 
-// ── Sign out ─────────────────────────────────────────────────────────────────
+// ── Sign out ──────────────────────────────────────────────────
 async function handleSignOut(){
   if(unsub){unsub();unsub=null;}
   _uid=null;
+  _authHandled=false;
   try{await fbSignOut(auth);}catch(e){}
   window.data={};
   const su=document.getElementById('syncUser');
@@ -2008,21 +2033,35 @@ async function handleSignOut(){
   showToast('👋 Signed out');
 }
 
-// ── Persistent auth state ─────────────────────────────────────────────────────
-// Fires immediately on load if user was previously signed in
+// ── Redirect result (iOS returns here after Google auth) ───────
+// Must run BEFORE onAuthStateChanged to avoid null-flash
+getRedirectResult(auth).then(result=>{
+  if(result&&result.user){
+    _uid=result.user.uid;
+    showApp(result.user);
+    startSync(result.user.uid);
+  }
+}).catch(e=>{
+  if(e.code==='auth/unauthorized-domain'){
+    showLoginScreen('❌ Domain not authorised in Firebase.\n\nAdd ankanc-art.github.io to Firebase Console → Authentication → Authorised domains.');
+  } else if(e.code&&e.code!=='auth/no-current-user'&&e.code!=='auth/null-user'){
+    showLoginScreen('Sign-in error: '+e.message+' ('+e.code+')');
+  }
+});
+
+// ── Persistent session (returning users on any device) ─────────
 onAuthStateChanged(auth,user=>{
-  if(user&&!_uid){
-    // Returning session — skip popup, go straight to app
+  if(_authHandled) return; // already handled by popup or redirect result
+  if(user){
     _uid=user.uid;
     showApp(user);
     startSync(user.uid);
-  } else if(!user&&!_uid){
-    // Not signed in
+  } else {
     showLoginScreen();
   }
 });
 
-// ── Wire buttons ─────────────────────────────────────────────────────────────
+// ── Wire buttons ──────────────────────────────────────────────
 function wireButtons(){
   const si=document.getElementById('googleSignInBtn');
   if(si&&!si._wired){si.addEventListener('click',handleSignIn);si._wired=true;}
