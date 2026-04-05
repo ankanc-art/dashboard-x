@@ -649,6 +649,7 @@ const MF=['January','February','March','April','May','June','July','August','Sep
 // task: {id,text,completed,priority,deadline,completedAt,subheadId,createdAt}
 // ══════════════════════════════════════════════
 let data = {};
+window.__app = null; // set after init
 let curMonthKey = todayKey();
 let viewKey = todayKey();
 let curSec = '__dashboard__';
@@ -1862,8 +1863,19 @@ function clearAndReload(){
       const hadData=loadFromStorage();
       if(!hadData) ensureMonth(curMonthKey);
     }catch(e){ ensureMonth(curMonthKey); }
-    // Show login overlay — Firebase module will hide it after auth
     render();
+    // Expose app internals for the Firebase module to use
+    window.__app = {
+      getData: function(){ return data; },
+      setData: function(d){ data=d; },
+      ensureMonth: ensureMonth,
+      render: render,
+      getCurMonthKey: function(){ return curMonthKey; },
+      autoSave: autoSave,
+      setStatus: setStatus,
+      updateLastSaved: updateLastSaved,
+      showToast: showToast
+    };
   }catch(e){
     const mc=document.getElementById('mainContent');
     if(mc) mc.innerHTML='<div style="padding:40px;font-family:sans-serif;color:#c62828"><b>&#9888; Error: '+(e.message||'unknown')+'</b><br><br><button onclick="clearAndReload()" style="margin-top:12px;padding:8px 16px;background:#e8624a;color:white;border:none;border-radius:6px;cursor:pointer">Clear data &amp; reload</button></div>';
@@ -1937,24 +1949,30 @@ function showApp(user){
 // ── Firestore sync ────────────────────────────────────────────
 function userRef(uid){return doc(db,'users',uid,'dashboardx','data');}
 
+// Helper: get app bridge (wait for main script to finish init)
+function app(){return window.__app;}
+
 function startSync(uid){
   if(unsub){unsub();unsub=null;}
-  setStatus('connecting');
+  if(app()) app().setStatus('connecting');
   unsub=onSnapshot(userRef(uid),snap=>{
+    const a=app();
+    if(!a) return; // app not ready yet
     if(snap.exists()){
       const d=snap.data();
       if(d&&d.data){
-        window.data=d.data;
-        Object.keys(window.data).forEach(k=>ensureMonth(k));
+        // Write into the main script's data variable via the bridge
+        a.setData(d.data);
+        Object.keys(a.getData()).forEach(k=>a.ensureMonth(k));
       }
     }
-    ensureMonth(curMonthKey);
-    render();
-    setStatus('synced');
-    updateLastSaved(Date.now());
+    a.ensureMonth(a.getCurMonthKey());
+    a.render();
+    a.setStatus('synced');
+    a.updateLastSaved(Date.now());
   },err=>{
-    setStatus('error','Sync error');
-    showToast('⚠️ '+err.message);
+    if(app()) app().setStatus('error','Sync error');
+    if(app()) app().showToast('⚠️ '+err.message);
   });
 }
 
@@ -1962,11 +1980,11 @@ window._fbSave=async function(d){
   if(!_uid)return;
   try{
     await setDoc(userRef(_uid),{data:d,updatedAt:Date.now()});
-    setStatus('synced');
-    updateLastSaved(Date.now());
+    if(app()) app().setStatus('synced');
+    if(app()) app().updateLastSaved(Date.now());
   }catch(e){
-    setStatus('error','Save failed');
-    showToast('⚠️ '+e.message);
+    if(app()) app().setStatus('error','Save failed');
+    if(app()) app().showToast('⚠️ '+e.message);
   }
 };
 
