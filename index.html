@@ -495,7 +495,7 @@ td.today-col{background:rgba(232,98,74,.03);}
 <body>
 
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<aside class="sidebar" id="appSidebar" style="display:none">
   <div class="sb-brand">
     <div class="sb-logo">
       <div class="sb-icon">🗂</div>
@@ -578,21 +578,41 @@ td.today-col{background:rgba(232,98,74,.03);}
   </div>
 </aside>
 
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" style="display:flex;position:fixed;inset:0;background:var(--bg);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:24px;padding:48px 44px;max-width:400px;width:90%;text-align:center;box-shadow:0 24px 64px rgba(30,26,20,.12)">
+    <div style="width:60px;height:60px;background:linear-gradient(135deg,var(--coral),#f5a07a);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 20px;box-shadow:0 8px 24px rgba(232,98,74,.3)">🗂</div>
+    <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:800;color:var(--ink);letter-spacing:-.5px;margin-bottom:6px">Dashboard X</div>
+    <div style="font-size:13px;color:var(--ink3);margin-bottom:28px;line-height:1.6">Sign in to sync your data across all devices.</div>
+    <button id="googleSignInBtn" style="display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px 20px;background:var(--surface);border:1.5px solid var(--border2);border-radius:12px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;color:var(--ink);transition:all .2s;box-shadow:0 2px 8px rgba(30,26,20,.06)">
+      <svg width="22" height="22" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.5 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8H6.1C9.5 35.7 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.3 4.2-4.2 5.6l6.2 5.2C41.2 35.7 44 30.3 44 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
+      <span id="signInBtnTxt">Continue with Google</span>
+    </button>
+    <div id="loginErr" style="display:none;margin-top:14px;background:var(--red-l);border:1px solid var(--red-b);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);text-align:left;white-space:pre-wrap;line-height:1.5"></div>
+    <div style="font-size:11px;color:var(--ink4);margin-top:14px">Your data is stored privately under your Google account.</div>
+  </div>
+</div>
+
 <!-- AUTOSAVE BAR -->
-<div id="as-bar">
+<div id="as-bar" style="display:none">
   <div class="as-l">
     <span class="as-dot" id="asDot"></span>
     <span id="asTxt">Loading…</span>
   </div>
   <div class="as-r">
     <span id="asLastSaved"></span>
+    <span id="syncUserInfo" style="display:none;align-items:center;gap:7px">
+      <img id="syncAvatar" src="" style="width:16px;height:16px;border-radius:50%;border:1px solid var(--border)">
+      <span id="syncName" style="font-size:10px;color:var(--ink3)"></span>
+      <button class="as-btn" onclick="fbSignOut()">Sign out</button>
+    </span>
     <button class="as-btn" onclick="exportData()">⬇ Export</button>
     <button class="as-btn danger" onclick="confirmClear()">✕ Clear all data</button>
   </div>
 </div>
 
 <!-- MAIN -->
-<main class="main">
+<main class="main" id="appMain" style="display:none">
   <div class="topbar">
     <div class="tb-left">
       <div class="tb-ico" id="tbIco">🌙</div>
@@ -1756,17 +1776,21 @@ function switchSection(key,el){
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ══════════════════════════════════════════════
-// AUTOSAVE — localStorage
+// STORAGE — localStorage + Firebase sync
 // ══════════════════════════════════════════════
 const LS_KEY = 'dashboard-x_v3';
-let saveTimer = null;
+let saveTimer  = null;
+let fbDb       = null;   // Firestore instance
+let fbUid      = null;   // signed-in user UID
+let fbUnsub    = null;   // Firestore listener
+let fbReady    = false;  // true once Firebase auth resolved
 
 function setStatus(state, msg) {
   const dot = document.getElementById('asDot');
   const txt = document.getElementById('asTxt');
   if (!dot || !txt) return;
-  dot.className = 'as-dot ' + state;
-  const labels = { saving:'Saving…', saved:'All changes saved', error:'Save error — check storage', loading:'Loading…', empty:'No saved data yet' };
+  dot.className = 'as-dot ' + (state==='synced'?'saved':state);
+  const labels = { saving:'Saving…', synced:'Synced ✓', saved:'Saved', error:'Error', loading:'Loading…', empty:'No data', connecting:'Connecting…' };
   txt.textContent = msg || labels[state] || '';
 }
 
@@ -1774,8 +1798,11 @@ function updateLastSaved(ts) {
   const el = document.getElementById('asLastSaved');
   if (!el || !ts) return;
   const d = new Date(ts);
-  el.textContent = 'Last saved ' + d.toLocaleString('en-IN', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
+  el.textContent = 'Saved ' + d.toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
 }
+
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 
 function autoSave() {
   clearTimeout(saveTimer);
@@ -1783,35 +1810,37 @@ function autoSave() {
   saveTimer = setTimeout(() => {
     try {
       const payload = { version:'3.0', savedAt: new Date().toISOString(), data };
-      try{localStorage.setItem(LS_KEY, JSON.stringify(payload));}catch(e){setStatus('error','Storage unavailable');return;}
-      setStatus('saved');
-      updateLastSaved(Date.now());
+      lsSet(LS_KEY, JSON.stringify(payload));
+      // If Firebase is ready, also write to Firestore
+      if (fbDb && fbUid) {
+        fbDb.collection('users').doc(fbUid)
+          .collection('dashboardx').doc('data')
+          .set({ data: data, updatedAt: Date.now() })
+          .then(() => { setStatus('synced'); updateLastSaved(Date.now()); })
+          .catch(e => { setStatus('error','Sync failed'); });
+      } else {
+        setStatus('saved');
+        updateLastSaved(Date.now());
+      }
     } catch(e) {
       setStatus('error');
-      showToast('⚠️ Auto-save failed: ' + e.message);
     }
-  }, 600);
+  }, 800);
 }
 
 function loadFromStorage() {
-  setStatus('loading');
   try {
-    const raw = (function(){try{return localStorage.getItem(LS_KEY);}catch(e){return null;}})();
-    if (!raw) { setStatus('empty'); return false; }
+    const raw = lsGet(LS_KEY);
+    if (!raw) { return false; }
     const p = JSON.parse(raw);
-    if (p.data) {
+    if (p && p.data) {
       data = p.data;
-      // Deep-clean: ensure every loaded month has valid structure
-      if(typeof data !== 'object' || data === null) data = {};
+      if (typeof data !== 'object' || data === null) data = {};
       Object.keys(data).forEach(k => ensureMonth(k));
-      setStatus('saved');
-      updateLastSaved(new Date(p.savedAt).getTime());
+      try { updateLastSaved(new Date(p.savedAt).getTime()); } catch(e) {}
       return true;
     }
-  } catch(e) {
-    setStatus('error', 'Failed to load saved data');
-    showToast('⚠️ Could not restore data: ' + e.message);
-  }
+  } catch(e) {}
   return false;
 }
 
@@ -1819,14 +1848,83 @@ function confirmClear() {
   showModal('🗑️','Clear All Data',
     'This will permanently delete <strong>all tasks and months</strong> from this browser.<br><br>Export a backup first if you want to keep it.',
     () => {
-      localStorage.removeItem(LS_KEY);
+      lsSet(LS_KEY, '');
       data = {};
       ensureMonth(curMonthKey);
       setStatus('empty');
-      document.getElementById('asLastSaved').textContent = '';
+      const el = document.getElementById('asLastSaved');
+      if (el) el.textContent = '';
       render();
       showToast('🗑️ All data cleared');
     });
+}
+
+// ── Firebase Firestore sync ─────────────────────────────────
+function startFirestoreSync(uid) {
+  if (fbUnsub) { fbUnsub(); fbUnsub = null; }
+  setStatus('connecting');
+  const docRef = fbDb.collection('users').doc(uid).collection('dashboardx').doc('data');
+  fbUnsub = docRef.onSnapshot(snap => {
+    if (snap.exists) {
+      const d = snap.data();
+      if (d && d.data) {
+        // Merge: Firestore is source of truth
+        data = d.data;
+        Object.keys(data).forEach(k => ensureMonth(k));
+        // Also update localStorage mirror
+        lsSet(LS_KEY, JSON.stringify({version:'3.0',savedAt:new Date().toISOString(),data}));
+      }
+    }
+    ensureMonth(curMonthKey);
+    render();
+    setStatus('synced');
+    updateLastSaved(Date.now());
+  }, err => {
+    setStatus('error', 'Sync error');
+    showToast('⚠️ ' + err.message);
+  });
+}
+
+// ── Show/hide app vs login ──────────────────────────────────
+function showApp(user) {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('appSidebar').style.display   = 'flex';
+  document.getElementById('appMain').style.display      = 'flex';
+  document.getElementById('as-bar').style.display       = 'flex';
+  if (user) {
+    const su = document.getElementById('syncUserInfo');
+    const av = document.getElementById('syncAvatar');
+    const nm = document.getElementById('syncName');
+    if (su) su.style.display = 'flex';
+    if (av) av.src = user.photoURL || '';
+    if (nm) nm.textContent = user.displayName || user.email || '';
+  }
+}
+
+function showLoginScreen(msg) {
+  document.getElementById('loginOverlay').style.display = 'flex';
+  ['appSidebar','appMain','as-bar'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const btn = document.getElementById('googleSignInBtn');
+  const btxt = document.getElementById('signInBtnTxt');
+  if (btn)  btn.disabled = false;
+  if (btxt) btxt.textContent = 'Continue with Google';
+  if (msg) {
+    const err = document.getElementById('loginErr');
+    if (err) { err.style.display = 'block'; err.textContent = msg; }
+  }
+}
+
+function fbSignOut() {
+  if (fbUnsub) { fbUnsub(); fbUnsub = null; }
+  fbUid = null;
+  if (window._fbAuth) window._fbAuth.signOut().catch(() => {});
+  const su = document.getElementById('syncUserInfo');
+  if (su) su.style.display = 'none';
+  showLoginScreen();
+  showToast('👋 Signed out');
 }
 
 // ══════════════════════════════════════════════
@@ -1852,14 +1950,7 @@ function loadData(e) {
         Object.keys(data).forEach(k => ensureMonth(k));
         ensureMonth(curMonthKey);
         autoSave();
-        showToast(`📂 Imported ${Object.keys(data).length} month(s) — auto-saved`);
-      } else if (p.state) {
-        ensureMonth(curMonthKey);
-        Object.keys(SECS).forEach(s => {
-          if (p.state[s]) data[curMonthKey][s].tasks = p.state[s].map(t=>({...t,id:t.id||uid(),completedAt:t.completedAt||null,subheadId:null,deadline:t.deadline||''}));
-        });
-        autoSave();
-        showToast('📂 v1/v2 data imported & saved');
+        showToast('📂 Imported — auto-saved');
       } else { showToast('⚠️ Unknown format'); return; }
       render();
     } catch { showToast('⚠️ Could not parse file'); }
@@ -1902,30 +1993,117 @@ function showToast(msg){
   document.body.appendChild(t);
   setTimeout(()=>t.remove(),3200);
 }
-
 function clearAndReload(){
   try{localStorage.removeItem('dashboard-x_v3');}catch(e){}
   location.reload();
 }
+
 // ══════════════════════════════════════════════
-// INIT
+// INIT — loads local data and renders immediately
+// Firebase auth happens async after this
 // ══════════════════════════════════════════════
 (function(){
   try {
     ensureMonth(curMonthKey);
-    try {
-      const hadData = loadFromStorage();
-      if (!hadData) ensureMonth(curMonthKey);
-    } catch(e) {
-      ensureMonth(curMonthKey);
-    }
+    loadFromStorage();
+    ensureMonth(curMonthKey);
     render();
+    // Keep app hidden — Firebase will call showApp() once auth resolves
   } catch(e) {
-    // Show error in main content area so screen is never blank
     const mc = document.getElementById('mainContent');
     if (mc) mc.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#c62828"><b>&#9888; Error: ' + (e.message||'unknown') + '</b><br><br><button onclick="clearAndReload()" style="margin-top:12px;padding:8px 16px;background:#e8624a;color:white;border:none;border-radius:6px;cursor:pointer">Clear data &amp; reload</button></div>';
   }
 })();
+</script>
+
+<!-- Firebase — single script load with guaranteed init order -->
+<script>
+// Dynamically load Firebase compat scripts then init — guarantees correct order
+(function loadFirebase() {
+  var scripts = [
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js',
+    'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js'
+  ];
+  var loaded = 0;
+  scripts.forEach(function(src) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = function() {
+      loaded++;
+      if (loaded === scripts.length) initFirebase();
+    };
+    s.onerror = function() {
+      setStatus('error', 'Firebase failed to load');
+    };
+    document.head.appendChild(s);
+  });
+})();
+
+function initFirebase() {
+(function() {
+  var FB = {
+    apiKey:"AIzaSyCXQKH1TF3qdOGUQzDPCJ73XYOwMcM89xM",
+    authDomain:"dashboard-00-4385d.firebaseapp.com",
+    projectId:"dashboard-00-4385d",
+    storageBucket:"dashboard-00-4385d.firebasestorage.app",
+    messagingSenderId:"762859100454",
+    appId:"1:762859100454:web:dea2e8c54768dd0bbbc9e7"
+  };
+
+  firebase.initializeApp(FB);
+  var auth = firebase.auth();
+  var db   = firebase.firestore();
+  window._fbAuth = auth; // for fbSignOut()
+
+  fbDb = db; // expose to main script scope
+
+  var prov = new firebase.auth.GoogleAuthProvider();
+  prov.addScope('email');
+  prov.setCustomParameters({prompt:'select_account'});
+
+  // Wire sign-in button
+  var btn = document.getElementById('googleSignInBtn');
+  if (btn) {
+    btn.onclick = function() {
+      var btxt = document.getElementById('signInBtnTxt');
+      var err  = document.getElementById('loginErr');
+      btn.disabled = true;
+      if (btxt) btxt.textContent = 'Opening Google…';
+      if (err)  err.style.display = 'none';
+
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
+        return auth.signInWithPopup(prov);
+      }).then(function(result) {
+        // signInWithPopup succeeded — onAuthStateChanged will fire next
+      }).catch(function(e) {
+        btn.disabled = false;
+        if (btxt) btxt.textContent = 'Continue with Google';
+        var msgs = {
+          'auth/popup-closed-by-user': 'Sign-in cancelled.',
+          'auth/cancelled-popup-request': 'Sign-in cancelled.',
+          'auth/popup-blocked': 'Popup was blocked. Allow popups for this site and try again.',
+          'auth/unauthorized-domain': 'Domain not authorised. Add ankanc-art.github.io to Firebase Console → Auth → Authorised domains.',
+          'auth/network-request-failed': 'Network error. Check your connection.',
+        };
+        var errEl = document.getElementById('loginErr');
+        if (errEl) { errEl.style.display='block'; errEl.textContent=msgs[e.code]||(e.message+' ('+e.code+')'); }
+      });
+    };
+  }
+
+  // Auth state — fires on every page load
+  auth.onAuthStateChanged(function(user) {
+    if (user) {
+      fbUid = user.uid;
+      showApp(user);
+      startFirestoreSync(user.uid);
+    } else {
+      showLoginScreen();
+    }
+  });
+})();
+} // end initFirebase
 </script>
 </body>
 </html>
