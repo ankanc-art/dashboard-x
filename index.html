@@ -6,7 +6,7 @@
 <title>Dashboard X</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -1815,13 +1815,12 @@ function autoSave() {
     try {
       const payload = { version:'3.0', savedAt: new Date().toISOString(), data };
       lsSet(LS_KEY, JSON.stringify(payload));
-      // If Firebase is ready, also write to Firestore
+      // If Firebase is ready, write to RTDB
       if (fbDb && fbUid) {
-        fbDb.collection('users').doc(fbUid)
-          .collection('dashboardx').doc('data')
+        fbDb.ref('users/' + fbUid + '/dashboardx')
           .set({ data: data, updatedAt: Date.now() })
-          .then(() => { setStatus('synced'); updateLastSaved(Date.now()); })
-          .catch(e => { setStatus('error','Sync failed'); });
+          .then(function(){ setStatus('synced'); updateLastSaved(Date.now()); })
+          .catch(function(e){ setStatus('error','Sync failed'); });
       } else {
         setStatus('saved');
         updateLastSaved(Date.now());
@@ -1864,35 +1863,61 @@ function confirmClear() {
 }
 
 // ── Firebase Firestore sync ─────────────────────────────────
-function startFirestoreSync(uid) {
-  if (fbUnsub) { fbUnsub(); fbUnsub = null; }
+function startRTDBSync(uid) {
+  if (fbUnsub) {
+    // RTDB uses .off() not function call
+    try { fbDb.ref('users/' + fbUid + '/dashboardx').off('value', fbUnsub); } catch(e){}
+    fbUnsub = null;
+  }
   setStatus('connecting');
-  const docRef = fbDb.collection('users').doc(uid).collection('dashboardx').doc('data');
-  fbUnsub = docRef.onSnapshot(snap => {
-    if (snap.exists) {
-      const d = snap.data();
-      if (d && d.data) {
-        // Firestore has data — use it as source of truth
-        showToast('✅ Loaded ' + Object.keys(d.data).length + ' month(s) from cloud');
-        data = d.data;
-        Object.keys(data).forEach(k => ensureMonth(k));
-        lsSet(LS_KEY, JSON.stringify({version:'3.0',savedAt:new Date().toISOString(),data}));
-        setStatus('synced');
-        showToast('✅ Data synced from cloud');
-      } else {
-        // Document exists but has no data field
-        setStatus('synced', 'Synced (empty)');
-      }
+  var ref = fbDb.ref('users/' + uid + '/dashboardx');
+
+  // One-time read first to check if cloud has data
+  ref.once('value').then(function(snap) {
+    var val = snap.val();
+    if (val && val.data) {
+      // Cloud has data — use it
+      data = val.data;
+      Object.keys(data).forEach(function(k){ ensureMonth(k); });
+      lsSet(LS_KEY, JSON.stringify({version:'3.0',savedAt:new Date().toISOString(),data:data}));
+      showToast('✅ Synced ' + Object.keys(data).length + ' month(s) from cloud');
     } else {
-      // No Firestore document yet — keep local data
-      setStatus('saved', 'Local data (not yet in cloud)');
+      // Cloud empty — push local data up
+      var hasLocal = Object.keys(data).some(function(k){
+        return Object.keys(data[k]).some(function(s){
+          return s !== '__habits__' && (data[k][s].tasks||[]).length > 0;
+        });
+      });
+      if (hasLocal) {
+        ref.set({ data: data, updatedAt: Date.now() })
+          .then(function(){ showToast('⬆️ Local data uploaded to cloud'); })
+          .catch(function(e){ showToast('⚠️ Upload failed: ' + e.message); });
+      }
     }
     ensureMonth(curMonthKey);
     render();
+    setStatus('synced');
     updateLastSaved(Date.now());
-  }, err => {
-    setStatus('error', 'Sync error: ' + err.code);
-    showToast('⚠️ Sync error: ' + err.message);
+  }).catch(function(e){
+    setStatus('error', 'Sync error');
+    showToast('⚠️ Sync error: ' + e.message);
+  });
+
+  // Live listener for real-time updates from other devices
+  fbUnsub = ref.on('value', function(snap) {
+    var val = snap.val();
+    if (val && val.data) {
+      data = val.data;
+      Object.keys(data).forEach(function(k){ ensureMonth(k); });
+      lsSet(LS_KEY, JSON.stringify({version:'3.0',savedAt:new Date().toISOString(),data:data}));
+      ensureMonth(curMonthKey);
+      render();
+      setStatus('synced');
+      updateLastSaved(Date.now());
+    }
+  }, function(e){
+    setStatus('error', 'Sync lost');
+    showToast('⚠️ ' + e.message);
   });
 }
 
@@ -1934,7 +1959,7 @@ function forcePushToCloud() {
     return;
   }
   setStatus('saving', 'Pushing to cloud…');
-  fbDb.collection('users').doc(fbUid).collection('dashboardx').doc('data')
+  fbDb.ref('users/' + fbUid + '/dashboardx')
     .set({ data: data, updatedAt: Date.now() })
     .then(function() {
       setStatus('synced');
@@ -1943,7 +1968,7 @@ function forcePushToCloud() {
     })
     .catch(function(e) {
       setStatus('error', 'Push failed');
-      showToast('⚠️ Push failed: ' + e.code + ' ' + e.message);
+      showToast('⚠️ Push failed: ' + (e.code||'') + ' ' + e.message);
     });
 }
 
@@ -2048,23 +2073,22 @@ function clearAndReload(){
 
 <script>
 function initFirebase() {
-  // ── Step 1: initialise Firebase immediately ──────────────────
   firebase.initializeApp({
     apiKey:"AIzaSyCXQKH1TF3qdOGUQzDPCJ73XYOwMcM89xM",
     authDomain:"dashboard-00-4385d.firebaseapp.com",
     projectId:"dashboard-00-4385d",
     storageBucket:"dashboard-00-4385d.firebasestorage.app",
     messagingSenderId:"762859100454",
-    appId:"1:762859100454:web:dea2e8c54768dd0bbbc9e7"
+    appId:"1:762859100454:web:dea2e8c54768dd0bbbc9e7",
+    databaseURL:"https://dashboard-00-4385d-default-rtdb.asia-southeast1.firebasedatabase.app"
   });
 
-  // ── Step 2: set fbDb and fbAuth in OUTER scope immediately ───
-  // These MUST be set before onAuthStateChanged fires
-  fbDb = firebase.firestore();
   var fbAuth = firebase.auth();
+  var db = firebase.database();
   window._fbAuth = fbAuth;
+  fbDb = db; // set in outer scope immediately
 
-  // ── Step 3: wire sign-in button ──────────────────────────────
+  // ── Sign-in button ──────────────────────────────────────
   var prov = new firebase.auth.GoogleAuthProvider();
   prov.addScope('email');
   prov.setCustomParameters({prompt:'select_account'});
@@ -2091,32 +2115,12 @@ function initFirebase() {
       });
   };
 
-  // ── Step 4: auth state observer ─────────────────────────────
-  // fbDb is already set above — no race condition possible
+  // ── Auth state ──────────────────────────────────────────
   fbAuth.onAuthStateChanged(function(user) {
     if (user) {
-      fbUid = user.uid;  // fbDb already set in step 2
+      fbUid = user.uid;
       showApp(user);
-      // Check if Firestore has data; if not, upload local data first
-      fbDb.collection('users').doc(user.uid).collection('dashboardx').doc('data')
-        .get()
-        .then(function(snap) {
-          if (!snap.exists && Object.keys(data).some(function(k){
-            return Object.keys(data[k]).some(function(s){
-              return s!=='__habits__' && (data[k][s].tasks||[]).length>0;
-            });
-          })) {
-            // Local data exists, Firestore is empty — upload first
-            return fbDb.collection('users').doc(user.uid).collection('dashboardx').doc('data')
-              .set({ data: data, updatedAt: Date.now() })
-              .then(function(){ showToast('⬆️ Local data uploaded to cloud'); });
-          }
-        })
-        .then(function(){ startFirestoreSync(user.uid); })
-        .catch(function(e){
-          showToast('⚠️ ' + e.message);
-          startFirestoreSync(user.uid);
-        });
+      startRTDBSync(user.uid);
     } else {
       showLoginScreen();
     }
