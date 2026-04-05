@@ -577,7 +577,7 @@ td.today-col{background:rgba(232,98,74,.03);}
     <span id="syncUser" style="display:none;align-items:center;gap:7px">
       <img id="syncAvatar" src="" alt="" style="width:16px;height:16px;border-radius:50%;border:1px solid var(--border)">
       <span id="syncName" style="font-size:10px;color:var(--ink3)"></span>
-      <button class="as-btn" onclick="doSignOut()">Sign out</button>
+      <button class="as-btn" id="signOutBtn">Sign out</button>
     </span>
     <button class="as-btn" onclick="exportData()">⬇ Export</button>
   </div>
@@ -589,7 +589,7 @@ td.today-col{background:rgba(232,98,74,.03);}
     <div style="width:60px;height:60px;background:linear-gradient(135deg,var(--coral),#f5a07a);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 20px;box-shadow:0 8px 24px rgba(232,98,74,.3)">🗂</div>
     <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:800;color:var(--ink);letter-spacing:-.5px;margin-bottom:6px">Dashboard X</div>
     <div style="font-size:13px;color:var(--ink3);margin-bottom:28px;line-height:1.6">Sign in to sync your data across all devices automatically.</div>
-    <button id="googleSignInBtn" onclick="doGoogleSignIn()" style="display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px 20px;background:var(--surface);border:1.5px solid var(--border2);border-radius:12px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;color:var(--ink);transition:all .2s;box-shadow:0 2px 8px rgba(30,26,20,.06)">
+    <button id="googleSignInBtn" style="display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px 20px;background:var(--surface);border:1.5px solid var(--border2);border-radius:12px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;color:var(--ink);transition:all .2s;box-shadow:0 2px 8px rgba(30,26,20,.06)">
       <svg width="22" height="22" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.5 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8H6.1C9.5 35.7 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.3 4.2-4.2 5.6l6.2 5.2C41.2 35.7 44 30.3 44 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
       <span id="googleBtnTxt">Continue with Google</span>
     </button>
@@ -1890,6 +1890,17 @@ const auth=getAuth(app);
 const db=getFirestore(app);
 let unsub=null;
 
+// Wire buttons (module scope — inline onclick won't reach module functions)
+function wireButtons(){
+  const signIn=document.getElementById('googleSignInBtn');
+  if(signIn && !signIn._wired){ signIn.addEventListener('click',handleSignIn); signIn._wired=true; }
+  const signOut=document.getElementById('signOutBtn');
+  if(signOut && !signOut._wired){ signOut.addEventListener('click',handleSignOut); signOut._wired=true; }
+}
+document.addEventListener('DOMContentLoaded', wireButtons);
+(function(){ wireButtons(); })();
+
+
 function userRef(uid){return doc(db,'users',uid,'dashboardx','data');}
 
 function showApp(user){
@@ -1945,43 +1956,35 @@ window._fbSave=async function(d){
   }
 };
 
-// Auth functions exposed to inline onclick handlers
-window.doGoogleSignIn=async function(){
+// Auth — use redirect as primary method (works reliably on all browsers/devices)
+async function handleSignIn(){
   const btn=document.getElementById('googleSignInBtn');
   const err=document.getElementById('loginErr');
+  const btxt=document.getElementById('googleBtnTxt');
   if(err) err.style.display='none';
   if(btn) btn.disabled=true;
-  const btxt=document.getElementById('googleBtnTxt');
-  if(btxt) btxt.textContent='Opening Google…';
-  const prov=new GoogleAuthProvider();
-  prov.setCustomParameters({prompt:'select_account'});
+  if(btxt) btxt.textContent='Redirecting to Google…';
   try{
-    await signInWithPopup(auth,prov);
+    const prov=new GoogleAuthProvider();
+    prov.setCustomParameters({prompt:'select_account'});
+    await signInWithRedirect(auth,prov);
+    // Page will redirect to Google and come back — code below never runs
   }catch(e){
-    if(e.code==='auth/popup-blocked'||e.code==='auth/cancelled-popup-request'){
-      if(btxt) btxt.textContent='Redirecting…';
-      try{await signInWithRedirect(auth,prov);return;}catch(e2){showLoginErr(btn,btxt,err,e2);return;}
+    if(btn) btn.disabled=false;
+    if(btxt) btxt.textContent='Continue with Google';
+    if(err){
+      err.style.display='block';
+      const msgs={
+        'auth/unauthorized-domain':'❌ This domain is not authorised in Firebase.\n\nFix: Go to Firebase Console → Authentication → Settings → Authorised domains → Add: ankanc-art.github.io',
+        'auth/network-request-failed':'❌ Network error. Check your connection and try again.',
+        'auth/operation-not-allowed':'❌ Google sign-in is not enabled in Firebase. Enable it under Authentication → Sign-in method.',
+      };
+      err.textContent=msgs[e.code]||(e.message+' ('+e.code+')');
     }
-    showLoginErr(btn,btxt,err,e);
   }
 };
 
-function showLoginErr(btn,btxt,errEl,e){
-  if(btn) btn.disabled=false;
-  if(btxt) btxt.textContent='Continue with Google';
-  if(!errEl) return;
-  errEl.style.display='block';
-  const msgs={
-    'auth/unauthorized-domain':'❌ Domain not authorised in Firebase.
-
-Fix: Firebase Console → Authentication → Settings → Authorised domains → Add: ankanc-art.github.io',
-    'auth/popup-blocked':'❌ Popup blocked — try allowing popups for this site.',
-    'auth/network-request-failed':'❌ Network error — check your connection.',
-  };
-  errEl.textContent=msgs[e.code]||(e.message||'Sign-in failed ('+e.code+')');
-}
-
-window.doSignOut=async function(){
+async function handleSignOut(){
   if(unsub){unsub();unsub=null;}
   try{await fbSignOut(auth);}catch(e){}
   window.data={};
@@ -2013,20 +2016,31 @@ onAuthStateChanged(auth,user=>{
   }
 });
 
-// Handle redirect sign-in result
+// Handle redirect result (this fires when Google redirects back to the page)
 (async()=>{
   try{
     const result=await getRedirectResult(auth);
     if(result&&result.user){
+      // Successfully signed in via redirect
       _fbUid=result.user.uid;
       initSync(db,result.user.uid);
       showApp(result.user);
       startSync(result.user.uid);
     }
   }catch(e){
-    if(e.code&&e.code!=='auth/no-current-user'){
-      const err=document.getElementById('loginErr');
-      if(err){err.style.display='block';err.textContent='Redirect sign-in failed: '+(e.message||e.code);}
+    // Show error on login screen
+    const err=document.getElementById('loginErr');
+    const btn=document.getElementById('googleSignInBtn');
+    const btxt=document.getElementById('googleBtnTxt');
+    if(btn) btn.disabled=false;
+    if(btxt) btxt.textContent='Continue with Google';
+    if(err&&e.code!=='auth/no-current-user'){
+      err.style.display='block';
+      const msgs={
+        'auth/unauthorized-domain':'❌ Domain not authorised.\n\nFix: Firebase Console → Authentication → Settings → Authorised domains → Add: ankanc-art.github.io',
+        'auth/network-request-failed':'❌ Network error. Check your connection.',
+      };
+      err.textContent=msgs[e.code]||(e.message+' ('+e.code+')');
     }
   }
 })();
