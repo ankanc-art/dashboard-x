@@ -1929,26 +1929,21 @@ function showLoginScreen(msg) {
 }
 
 function forcePushToCloud() {
-  var msg = 'PUSH DIAGNOSTIC\n\n';
-  msg += 'fbDb: ' + (fbDb ? 'SET' : 'NULL') + '\n';
-  msg += 'fbUid: ' + (fbUid ? fbUid.slice(0,12)+'...' : 'NULL') + '\n';
-  msg += 'data months: ' + Object.keys(data).length + '\n';
   if (!fbDb || !fbUid) {
-    alert(msg + '\nNot connected to Firebase — cannot push.');
+    showToast('⚠️ Not connected — fbDb:' + (fbDb?'OK':'null') + ' fbUid:' + (fbUid?'OK':'null'));
     return;
   }
-  msg += '\nAttempting push…';
-  setStatus('saving', 'Pushing…');
+  setStatus('saving', 'Pushing to cloud…');
   fbDb.collection('users').doc(fbUid).collection('dashboardx').doc('data')
     .set({ data: data, updatedAt: Date.now() })
     .then(function() {
       setStatus('synced');
       updateLastSaved(Date.now());
-      alert('✅ SUCCESS — Data pushed to Firestore!');
+      showToast('✅ Data pushed to cloud!');
     })
     .catch(function(e) {
       setStatus('error', 'Push failed');
-      alert('❌ PUSH FAILED\n\nError: ' + e.message + '\nCode: ' + e.code);
+      showToast('⚠️ Push failed: ' + e.code + ' ' + e.message);
     });
 }
 
@@ -2053,98 +2048,79 @@ function clearAndReload(){
 
 <script>
 function initFirebase() {
-console.log('Firebase loading...');
-(function() {
-  var FB = {
+  // ── Step 1: initialise Firebase immediately ──────────────────
+  firebase.initializeApp({
     apiKey:"AIzaSyCXQKH1TF3qdOGUQzDPCJ73XYOwMcM89xM",
     authDomain:"dashboard-00-4385d.firebaseapp.com",
     projectId:"dashboard-00-4385d",
     storageBucket:"dashboard-00-4385d.firebasestorage.app",
     messagingSenderId:"762859100454",
     appId:"1:762859100454:web:dea2e8c54768dd0bbbc9e7"
-  };
+  });
 
-  firebase.initializeApp(FB);
-  var auth = firebase.auth();
-  var db   = firebase.firestore();
-  window._fbAuth = auth;
+  // ── Step 2: set fbDb and fbAuth in OUTER scope immediately ───
+  // These MUST be set before onAuthStateChanged fires
+  fbDb = firebase.firestore();
+  var fbAuth = firebase.auth();
+  window._fbAuth = fbAuth;
 
-  fbDb = db;
-  console.log('Firebase ready');
-
+  // ── Step 3: wire sign-in button ──────────────────────────────
   var prov = new firebase.auth.GoogleAuthProvider();
   prov.addScope('email');
   prov.setCustomParameters({prompt:'select_account'});
 
-  // Wire sign-in button
-  var btn = document.getElementById('googleSignInBtn');
-  if (btn) {
-    btn.onclick = function() {
-      var btxt = document.getElementById('signInBtnTxt');
-      var err  = document.getElementById('loginErr');
-      btn.disabled = true;
-      if (btxt) btxt.textContent = 'Opening Google…';
-      if (err)  err.style.display = 'none';
-
-      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
-        return auth.signInWithPopup(prov);
-      }).then(function(result) {
-        // signInWithPopup succeeded — onAuthStateChanged will fire next
-      }).catch(function(e) {
-        btn.disabled = false;
+  document.getElementById('googleSignInBtn').onclick = function() {
+    var btxt = document.getElementById('signInBtnTxt');
+    var err  = document.getElementById('loginErr');
+    this.disabled = true;
+    if (btxt) btxt.textContent = 'Opening Google…';
+    if (err)  err.style.display = 'none';
+    fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+      .then(function(){ return fbAuth.signInWithPopup(prov); })
+      .catch(function(e){
+        document.getElementById('googleSignInBtn').disabled = false;
         if (btxt) btxt.textContent = 'Continue with Google';
         var msgs = {
-          'auth/popup-closed-by-user': 'Sign-in cancelled.',
-          'auth/cancelled-popup-request': 'Sign-in cancelled.',
-          'auth/popup-blocked': 'Popup was blocked. Allow popups for this site and try again.',
-          'auth/unauthorized-domain': 'Domain not authorised. Add ankanc-art.github.io to Firebase Console → Auth → Authorised domains.',
-          'auth/network-request-failed': 'Network error. Check your connection.',
+          'auth/popup-closed-by-user':'Sign-in cancelled.',
+          'auth/popup-blocked':'Popup blocked — allow popups for this site.',
+          'auth/unauthorized-domain':'Domain not authorised in Firebase Console.',
+          'auth/network-request-failed':'Network error — check connection.',
         };
         var errEl = document.getElementById('loginErr');
-        if (errEl) { errEl.style.display='block'; errEl.textContent=msgs[e.code]||(e.message+' ('+e.code+')'); }
+        if (errEl){ errEl.style.display='block'; errEl.textContent=msgs[e.code]||e.message; }
       });
-    };
-  }
+  };
 
-  // Auth state — fires on every page load
-  auth.onAuthStateChanged(function(user) {
-    alert('🔐 Auth state: ' + (user ? user.email : 'NOT SIGNED IN — click sign in button'));
+  // ── Step 4: auth state observer ─────────────────────────────
+  // fbDb is already set above — no race condition possible
+  fbAuth.onAuthStateChanged(function(user) {
     if (user) {
-      fbUid = user.uid;
-      fbDb  = db;
+      fbUid = user.uid;  // fbDb already set in step 2
       showApp(user);
-      // First: try to push local data up (in case Firestore doc is empty)
-      // startFirestoreSync will then pull whatever is in Firestore
-      var localHasData = Object.keys(data).some(function(k) {
-        return Object.keys(data[k]).some(function(s) {
-          return s !== '__habits__' && (data[k][s].tasks||[]).length > 0;
+      // Check if Firestore has data; if not, upload local data first
+      fbDb.collection('users').doc(user.uid).collection('dashboardx').doc('data')
+        .get()
+        .then(function(snap) {
+          if (!snap.exists && Object.keys(data).some(function(k){
+            return Object.keys(data[k]).some(function(s){
+              return s!=='__habits__' && (data[k][s].tasks||[]).length>0;
+            });
+          })) {
+            // Local data exists, Firestore is empty — upload first
+            return fbDb.collection('users').doc(user.uid).collection('dashboardx').doc('data')
+              .set({ data: data, updatedAt: Date.now() })
+              .then(function(){ showToast('⬆️ Local data uploaded to cloud'); });
+          }
+        })
+        .then(function(){ startFirestoreSync(user.uid); })
+        .catch(function(e){
+          showToast('⚠️ ' + e.message);
+          startFirestoreSync(user.uid);
         });
-      });
-      if (localHasData) {
-        // Push local data to Firestore first, then start listener
-        db.collection('users').doc(user.uid).collection('dashboardx').doc('data')
-          .get().then(function(snap) {
-            if (!snap.exists) {
-              showToast('⬆ No cloud data found — uploading local data…');
-              return db.collection('users').doc(user.uid).collection('dashboardx').doc('data')
-                .set({ data: data, updatedAt: Date.now() });
-            } else {
-              showToast('☁️ Cloud data found — syncing…');
-            }
-          }).then(function() {
-            startFirestoreSync(user.uid);
-          }).catch(function(e) {
-            showToast('⚠️ Firestore error: ' + e.code + ' — ' + e.message);
-            startFirestoreSync(user.uid);
-          });
-      } else {
-        startFirestoreSync(user.uid);
-      }
     } else {
       showLoginScreen();
     }
   });
-})();
 } // end initFirebase
 
 // Call initFirebase once DOM is ready (SDKs in <head> will be loaded by then)
