@@ -466,8 +466,11 @@ td.today-col{background:rgba(232,98,74,.03);}
 .as-l{display:flex;align-items:center;gap:6px;}
 .as-dot{width:7px;height:7px;border-radius:50%;background:var(--ink4);flex-shrink:0;transition:background .3s;}
 .as-dot.saving{background:var(--amber);animation:asbl .8s infinite;}
+.as-dot.synced{background:var(--sage);}
 .as-dot.saved{background:var(--sage);}
 .as-dot.error{background:var(--red);}
+.as-dot.offline{background:var(--sky);}
+.as-dot.connecting{background:var(--amber);animation:asbl .8s infinite;}
 @keyframes asbl{0%,100%{opacity:1;}50%{opacity:.3;}}
 .as-r{display:flex;align-items:center;gap:14px;color:var(--ink4);}
 .as-btn{color:var(--sky);cursor:pointer;text-decoration:underline;font-size:10px;background:none;border:none;
@@ -563,16 +566,35 @@ td.today-col{background:rgba(232,98,74,.03);}
   </div>
 </aside>
 
-<!-- AUTOSAVE BAR -->
+<!-- SYNC / AUTH BAR -->
 <div id="as-bar">
   <div class="as-l">
     <span class="as-dot" id="asDot"></span>
-    <span id="asTxt">Loading…</span>
+    <span id="asTxt">Connecting…</span>
   </div>
   <div class="as-r">
     <span id="asLastSaved"></span>
+    <span id="syncUser" style="display:none;align-items:center;gap:7px">
+      <img id="syncAvatar" src="" alt="" style="width:16px;height:16px;border-radius:50%;border:1px solid var(--border)">
+      <span id="syncName" style="font-size:10px;color:var(--ink3)"></span>
+      <button class="as-btn" onclick="doSignOut()">Sign out</button>
+    </span>
     <button class="as-btn" onclick="exportData()">⬇ Export</button>
-    <button class="as-btn danger" onclick="confirmClear()">✕ Clear all data</button>
+  </div>
+</div>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+  <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:24px;padding:48px 44px;max-width:400px;width:90%;text-align:center;box-shadow:0 24px 64px rgba(30,26,20,.12)">
+    <div style="width:60px;height:60px;background:linear-gradient(135deg,var(--coral),#f5a07a);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 20px;box-shadow:0 8px 24px rgba(232,98,74,.3)">🗂</div>
+    <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:800;color:var(--ink);letter-spacing:-.5px;margin-bottom:6px">Dashboard X</div>
+    <div style="font-size:13px;color:var(--ink3);margin-bottom:28px;line-height:1.6">Sign in to sync your data across all devices automatically.</div>
+    <button id="googleSignInBtn" onclick="doGoogleSignIn()" style="display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px 20px;background:var(--surface);border:1.5px solid var(--border2);border-radius:12px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;color:var(--ink);transition:all .2s;box-shadow:0 2px 8px rgba(30,26,20,.06)">
+      <svg width="22" height="22" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.5 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8H6.1C9.5 35.7 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.3 4.2-4.2 5.6l6.2 5.2C41.2 35.7 44 30.3 44 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
+      <span id="googleBtnTxt">Continue with Google</span>
+    </button>
+    <div id="loginErr" style="display:none;background:var(--red-l);border:1px solid var(--red-b);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);margin-top:14px;text-align:left;line-height:1.5;white-space:pre-wrap"></div>
+    <div style="font-size:11px;color:var(--ink4);margin-top:14px;line-height:1.5">Your data is stored privately under your Google account.</div>
   </div>
 </div>
 
@@ -1688,79 +1710,70 @@ function switchSection(key,el){
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ══════════════════════════════════════════════
-// AUTOSAVE — localStorage
+// FIREBASE SYNC
 // ══════════════════════════════════════════════
-const LS_KEY = 'dashboard-x_v3';
-let saveTimer = null;
+let _fbDb = null;
+let _fbUid = null;
+let _saveTimer = null;
+let _localOnly = false;
 
-function setStatus(state, msg) {
-  const dot = document.getElementById('asDot');
-  const txt = document.getElementById('asTxt');
-  if (!dot || !txt) return;
-  dot.className = 'as-dot ' + state;
-  const labels = { saving:'Saving…', saved:'All changes saved', error:'Save error — check storage', loading:'Loading…', empty:'No saved data yet' };
-  txt.textContent = msg || labels[state] || '';
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){return false;}}
+const LS_KEY='dashboard-x_v3';
+
+function setStatus(state,msg){
+  try{
+    const dot=document.getElementById('asDot');
+    const txt=document.getElementById('asTxt');
+    if(!dot||!txt) return;
+    dot.className='as-dot '+state;
+    const labels={saving:'Saving…',synced:'Synced ✓',error:'Sync error',loading:'Loading…',offline:'Saved locally',connecting:'Connecting…'};
+    txt.textContent=msg||labels[state]||'';
+  }catch(e){}
 }
 
-function updateLastSaved(ts) {
-  const el = document.getElementById('asLastSaved');
-  if (!el || !ts) return;
-  const d = new Date(ts);
-  el.textContent = 'Last saved ' + d.toLocaleString('en-IN', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
+function updateLastSaved(ts){
+  try{
+    const el=document.getElementById('asLastSaved');
+    if(!el||!ts) return;
+    const d=new Date(ts);
+    el.textContent='Saved '+d.toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
+  }catch(e){}
 }
 
-function autoSave() {
-  clearTimeout(saveTimer);
+function initSync(db,uid){
+  _fbDb=db; _fbUid=uid; _localOnly=false;
+  setStatus('connecting');
+}
+
+function autoSave(){
+  clearTimeout(_saveTimer);
   setStatus('saving');
-  saveTimer = setTimeout(() => {
-    try {
-      const payload = { version:'3.0', savedAt: new Date().toISOString(), data };
-      try{localStorage.setItem(LS_KEY, JSON.stringify(payload));}catch(e){setStatus('error','Storage unavailable');return;}
-      setStatus('saved');
+  _saveTimer=setTimeout(function(){
+    lsSet(LS_KEY,JSON.stringify({version:'3.0',savedAt:new Date().toISOString(),data:data}));
+    if(_fbDb&&_fbUid&&!_localOnly){
+      window._fbSave && window._fbSave(data);
+    } else {
+      setStatus('offline');
       updateLastSaved(Date.now());
-    } catch(e) {
-      setStatus('error');
-      showToast('⚠️ Auto-save failed: ' + e.message);
     }
-  }, 600);
+  },800);
 }
 
-function loadFromStorage() {
-  setStatus('loading');
-  try {
-    const raw = (function(){try{return localStorage.getItem(LS_KEY);}catch(e){return null;}})();
-    if (!raw) { setStatus('empty'); return false; }
-    const p = JSON.parse(raw);
-    if (p.data) {
-      data = p.data;
-      // Deep-clean: ensure every loaded month has valid structure
-      if(typeof data !== 'object' || data === null) data = {};
-      Object.keys(data).forEach(k => ensureMonth(k));
-      setStatus('saved');
-      updateLastSaved(new Date(p.savedAt).getTime());
+function loadFromStorage(){
+  try{
+    const raw=lsGet(LS_KEY);
+    if(!raw){setStatus('offline','No saved data');return false;}
+    const p=JSON.parse(raw);
+    if(p&&p.data){
+      data=p.data;
+      Object.keys(data).forEach(function(k){ensureMonth(k);});
+      try{updateLastSaved(new Date(p.savedAt).getTime());}catch(e){}
       return true;
     }
-  } catch(e) {
-    setStatus('error', 'Failed to load saved data');
-    showToast('⚠️ Could not restore data: ' + e.message);
-  }
+  }catch(e){}
   return false;
 }
-
-function confirmClear() {
-  showModal('🗑️','Clear All Data',
-    'This will permanently delete <strong>all tasks and months</strong> from this browser.<br><br>Export a backup first if you want to keep it.',
-    () => {
-      localStorage.removeItem(LS_KEY);
-      data = {};
-      ensureMonth(curMonthKey);
-      setStatus('empty');
-      document.getElementById('asLastSaved').textContent = '';
-      render();
-      showToast('🗑️ All data cleared');
-    });
-}
-
 // ══════════════════════════════════════════════
 // EXPORT / IMPORT (manual backup)
 // ══════════════════════════════════════════════
@@ -1843,21 +1856,167 @@ function clearAndReload(){
 // INIT
 // ══════════════════════════════════════════════
 (function(){
-  try {
+  try{
     ensureMonth(curMonthKey);
-    try {
-      const hadData = loadFromStorage();
-      if (!hadData) ensureMonth(curMonthKey);
-    } catch(e) {
-      ensureMonth(curMonthKey);
-    }
+    try{
+      const hadData=loadFromStorage();
+      if(!hadData) ensureMonth(curMonthKey);
+    }catch(e){ ensureMonth(curMonthKey); }
+    // Show login overlay — Firebase module will hide it after auth
     render();
-  } catch(e) {
-    // Show error in main content area so screen is never blank
-    const mc = document.getElementById('mainContent');
-    if (mc) mc.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#c62828"><b>&#9888; Error: ' + (e.message||'unknown') + '</b><br><br><button onclick="clearAndReload()" style="margin-top:12px;padding:8px 16px;background:#e8624a;color:white;border:none;border-radius:6px;cursor:pointer">Clear data &amp; reload</button></div>';
+  }catch(e){
+    const mc=document.getElementById('mainContent');
+    if(mc) mc.innerHTML='<div style="padding:40px;font-family:sans-serif;color:#c62828"><b>&#9888; Error: '+(e.message||'unknown')+'</b><br><br><button onclick="clearAndReload()" style="margin-top:12px;padding:8px 16px;background:#e8624a;color:white;border:none;border-radius:6px;cursor:pointer">Clear data &amp; reload</button></div>';
   }
 })();
 </script>
+
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import{getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,getRedirectResult,signOut as fbSignOut,onAuthStateChanged}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import{getFirestore,doc,setDoc,onSnapshot}from'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const FB={
+  apiKey:"AIzaSyCXQKH1TF3qdOGUQzDPCJ73XYOwMcM89xM",
+  authDomain:"dashboard-00-4385d.firebaseapp.com",
+  projectId:"dashboard-00-4385d",
+  storageBucket:"dashboard-00-4385d.firebasestorage.app",
+  messagingSenderId:"762859100454",
+  appId:"1:762859100454:web:dea2e8c54768dd0bbbc9e7"
+};
+
+const app=initializeApp(FB);
+const auth=getAuth(app);
+const db=getFirestore(app);
+let unsub=null;
+
+function userRef(uid){return doc(db,'users',uid,'dashboardx','data');}
+
+function showApp(user){
+  const ov=document.getElementById('loginOverlay');
+  if(ov) ov.style.display='none';
+  if(user){
+    const av=document.getElementById('syncAvatar');
+    const nm=document.getElementById('syncName');
+    const su=document.getElementById('syncUser');
+    if(av) av.src=user.photoURL||'';
+    if(nm) nm.textContent=user.displayName||user.email||'';
+    if(su) su.style.display='flex';
+  }
+}
+
+function startSync(uid){
+  setStatus('connecting');
+  unsub=onSnapshot(userRef(uid),snap=>{
+    if(snap.exists()){
+      const remote=snap.data();
+      if(remote&&remote.data){
+        window.data=remote.data;
+        Object.keys(window.data).forEach(k=>ensureMonth(k));
+      }
+    }
+    ensureMonth(window.curMonthKey||curMonthKey);
+    render();
+    setStatus('synced');
+    updateLastSaved(Date.now());
+  },err=>{
+    setStatus('error','Sync error — '+err.code);
+    showToast('⚠️ '+err.message);
+  });
+}
+
+// Expose save function to main script
+window._fbSave=async function(d){
+  try{
+    await setDoc(userRef(_fbUid),{data:d,updatedAt:Date.now()});
+    setStatus('synced');
+    updateLastSaved(Date.now());
+  }catch(e){
+    setStatus('error','Save failed');
+    showToast('⚠️ Save failed: '+e.message);
+  }
+};
+
+// Auth functions exposed to inline onclick handlers
+window.doGoogleSignIn=async function(){
+  const btn=document.getElementById('googleSignInBtn');
+  const err=document.getElementById('loginErr');
+  if(err) err.style.display='none';
+  if(btn) btn.disabled=true;
+  const btxt=document.getElementById('googleBtnTxt');
+  if(btxt) btxt.textContent='Opening Google…';
+  const prov=new GoogleAuthProvider();
+  prov.setCustomParameters({prompt:'select_account'});
+  try{
+    await signInWithPopup(auth,prov);
+  }catch(e){
+    if(e.code==='auth/popup-blocked'||e.code==='auth/cancelled-popup-request'){
+      if(btxt) btxt.textContent='Redirecting…';
+      try{await signInWithRedirect(auth,prov);return;}catch(e2){showLoginErr(btn,btxt,err,e2);return;}
+    }
+    showLoginErr(btn,btxt,err,e);
+  }
+};
+
+function showLoginErr(btn,btxt,errEl,e){
+  if(btn) btn.disabled=false;
+  if(btxt) btxt.textContent='Continue with Google';
+  if(!errEl) return;
+  errEl.style.display='block';
+  const msgs={
+    'auth/unauthorized-domain':'❌ Domain not authorised in Firebase.
+
+Fix: Firebase Console → Authentication → Settings → Authorised domains → Add: ankanc-art.github.io',
+    'auth/popup-blocked':'❌ Popup blocked — try allowing popups for this site.',
+    'auth/network-request-failed':'❌ Network error — check your connection.',
+  };
+  errEl.textContent=msgs[e.code]||(e.message||'Sign-in failed ('+e.code+')');
+}
+
+window.doSignOut=async function(){
+  if(unsub){unsub();unsub=null;}
+  try{await fbSignOut(auth);}catch(e){}
+  window.data={};
+  const ov=document.getElementById('loginOverlay');
+  if(ov) ov.style.display='flex';
+  const su=document.getElementById('syncUser');
+  if(su) su.style.display='none';
+  setStatus('connecting','Sign in to sync');
+  showToast('👋 Signed out');
+};
+
+// Auth state observer
+onAuthStateChanged(auth,user=>{
+  if(user){
+    _fbUid=user.uid;
+    initSync(db,user.uid);
+    showApp(user);
+    startSync(user.uid);
+  } else {
+    // Show login overlay
+    const ov=document.getElementById('loginOverlay');
+    if(ov) ov.style.display='flex';
+  }
+});
+
+// Handle redirect sign-in result
+(async()=>{
+  try{
+    const result=await getRedirectResult(auth);
+    if(result&&result.user){
+      _fbUid=result.user.uid;
+      initSync(db,result.user.uid);
+      showApp(result.user);
+      startSync(result.user.uid);
+    }
+  }catch(e){
+    if(e.code&&e.code!=='auth/no-current-user'){
+      const err=document.getElementById('loginErr');
+      if(err){err.style.display='block';err.textContent='Redirect sign-in failed: '+(e.message||e.code);}
+    }
+  }
+})();
+</script>
+
 </body>
 </html>
