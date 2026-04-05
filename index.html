@@ -483,7 +483,7 @@ td.today-col{background:rgba(232,98,74,.03);}
 <body>
 
 <!-- SIDEBAR -->
-<aside class="sidebar">
+<aside class="sidebar" id="appSidebar" style="display:none">
   <div class="sb-brand">
     <div class="sb-logo">
       <div class="sb-icon">🗂</div>
@@ -567,7 +567,7 @@ td.today-col{background:rgba(232,98,74,.03);}
 </aside>
 
 <!-- SYNC / AUTH BAR -->
-<div id="as-bar">
+<div id="as-bar" style="display:none">
   <div class="as-l">
     <span class="as-dot" id="asDot"></span>
     <span id="asTxt">Connecting…</span>
@@ -584,7 +584,7 @@ td.today-col{background:rgba(232,98,74,.03);}
 </div>
 
 <!-- LOGIN OVERLAY -->
-<div id="loginOverlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+<div id="loginOverlay" style="display:flex;position:fixed;inset:0;background:var(--bg);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
   <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:24px;padding:48px 44px;max-width:400px;width:90%;text-align:center;box-shadow:0 24px 64px rgba(30,26,20,.12)">
     <div style="width:60px;height:60px;background:linear-gradient(135deg,var(--coral),#f5a07a);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 20px;box-shadow:0 8px 24px rgba(232,98,74,.3)">🗂</div>
     <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:800;color:var(--ink);letter-spacing:-.5px;margin-bottom:6px">Dashboard X</div>
@@ -599,7 +599,7 @@ td.today-col{background:rgba(232,98,74,.03);}
 </div>
 
 <!-- MAIN -->
-<main class="main">
+<main class="main" id="appMain" style="display:none">
   <div class="topbar">
     <div class="tb-left">
       <div class="tb-ico" id="tbIco">🌙</div>
@@ -1893,8 +1893,16 @@ let unsub=null;
 function userRef(uid){return doc(db,'users',uid,'dashboardx','data');}
 
 function showApp(user){
+  // Hide login overlay
   const ov=document.getElementById('loginOverlay');
   if(ov) ov.style.display='none';
+  // Show app
+  const sb=document.getElementById('appSidebar');
+  const mn=document.getElementById('appMain');
+  const ab=document.getElementById('as-bar');
+  if(sb) sb.style.display='flex';
+  if(mn) mn.style.display='flex';
+  if(ab) ab.style.display='flex';
   if(user){
     const av=document.getElementById('syncAvatar');
     const nm=document.getElementById('syncName');
@@ -1979,6 +1987,12 @@ window.doSignOut=async function(){
   window.data={};
   const ov=document.getElementById('loginOverlay');
   if(ov) ov.style.display='flex';
+  const sb=document.getElementById('appSidebar');
+  const mn=document.getElementById('appMain');
+  const ab=document.getElementById('as-bar');
+  if(sb) sb.style.display='none';
+  if(mn) mn.style.display='none';
+  if(ab) ab.style.display='none';
   const su=document.getElementById('syncUser');
   if(su) su.style.display='none';
   setStatus('connecting','Sign in to sync');
