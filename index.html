@@ -1929,18 +1929,26 @@ function showLoginScreen(msg) {
 }
 
 function forcePushToCloud() {
-  if (!fbDb || !fbUid) { showToast('⚠️ Not signed in to cloud'); return; }
-  setStatus('saving', 'Pushing to cloud…');
+  var msg = 'PUSH DIAGNOSTIC\n\n';
+  msg += 'fbDb: ' + (fbDb ? 'SET' : 'NULL') + '\n';
+  msg += 'fbUid: ' + (fbUid ? fbUid.slice(0,12)+'...' : 'NULL') + '\n';
+  msg += 'data months: ' + Object.keys(data).length + '\n';
+  if (!fbDb || !fbUid) {
+    alert(msg + '\nNot connected to Firebase — cannot push.');
+    return;
+  }
+  msg += '\nAttempting push…';
+  setStatus('saving', 'Pushing…');
   fbDb.collection('users').doc(fbUid).collection('dashboardx').doc('data')
     .set({ data: data, updatedAt: Date.now() })
     .then(function() {
       setStatus('synced');
       updateLastSaved(Date.now());
-      showToast('✅ Data pushed to cloud!');
+      alert('✅ SUCCESS — Data pushed to Firestore!');
     })
     .catch(function(e) {
       setStatus('error', 'Push failed');
-      showToast('⚠️ Push failed: ' + e.message);
+      alert('❌ PUSH FAILED\n\nError: ' + e.message + '\nCode: ' + e.code);
     });
 }
 
@@ -2045,6 +2053,7 @@ function clearAndReload(){
 
 <script>
 function initFirebase() {
+console.log('Firebase loading...');
 (function() {
   var FB = {
     apiKey:"AIzaSyCXQKH1TF3qdOGUQzDPCJ73XYOwMcM89xM",
@@ -2058,9 +2067,10 @@ function initFirebase() {
   firebase.initializeApp(FB);
   var auth = firebase.auth();
   var db   = firebase.firestore();
-  window._fbAuth = auth; // for fbSignOut()
+  window._fbAuth = auth;
 
-  fbDb = db; // expose to main script scope
+  fbDb = db;
+  console.log('Firebase ready');
 
   var prov = new firebase.auth.GoogleAuthProvider();
   prov.addScope('email');
@@ -2098,10 +2108,10 @@ function initFirebase() {
 
   // Auth state — fires on every page load
   auth.onAuthStateChanged(function(user) {
+    alert('🔐 Auth state: ' + (user ? user.email : 'NOT SIGNED IN — click sign in button'));
     if (user) {
       fbUid = user.uid;
-      fbDb  = db; // ensure db is set before sync
-      showToast('🔐 Signed in: ' + (user.email||user.uid.slice(0,8)));
+      fbDb  = db;
       showApp(user);
       // First: try to push local data up (in case Firestore doc is empty)
       // startFirestoreSync will then pull whatever is in Firestore
