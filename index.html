@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard X</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -604,6 +607,7 @@ td.today-col{background:rgba(232,98,74,.03);}
     <span id="syncUserInfo" style="display:none;align-items:center;gap:7px">
       <img id="syncAvatar" src="" style="width:16px;height:16px;border-radius:50%;border:1px solid var(--border)">
       <span id="syncName" style="font-size:10px;color:var(--ink3)"></span>
+      <button class="as-btn" onclick="forcePushToCloud()" title="Force upload local data to cloud">⬆ Push</button>
       <button class="as-btn" onclick="fbSignOut()">Sign out</button>
     </span>
     <button class="as-btn" onclick="exportData()">⬇ Export</button>
@@ -1868,20 +1872,27 @@ function startFirestoreSync(uid) {
     if (snap.exists) {
       const d = snap.data();
       if (d && d.data) {
-        // Merge: Firestore is source of truth
+        // Firestore has data — use it as source of truth
+        showToast('✅ Loaded ' + Object.keys(d.data).length + ' month(s) from cloud');
         data = d.data;
         Object.keys(data).forEach(k => ensureMonth(k));
-        // Also update localStorage mirror
         lsSet(LS_KEY, JSON.stringify({version:'3.0',savedAt:new Date().toISOString(),data}));
+        setStatus('synced');
+        showToast('✅ Data synced from cloud');
+      } else {
+        // Document exists but has no data field
+        setStatus('synced', 'Synced (empty)');
       }
+    } else {
+      // No Firestore document yet — keep local data
+      setStatus('saved', 'Local data (not yet in cloud)');
     }
     ensureMonth(curMonthKey);
     render();
-    setStatus('synced');
     updateLastSaved(Date.now());
   }, err => {
-    setStatus('error', 'Sync error');
-    showToast('⚠️ ' + err.message);
+    setStatus('error', 'Sync error: ' + err.code);
+    showToast('⚠️ Sync error: ' + err.message);
   });
 }
 
@@ -1915,6 +1926,22 @@ function showLoginScreen(msg) {
     const err = document.getElementById('loginErr');
     if (err) { err.style.display = 'block'; err.textContent = msg; }
   }
+}
+
+function forcePushToCloud() {
+  if (!fbDb || !fbUid) { showToast('⚠️ Not signed in to cloud'); return; }
+  setStatus('saving', 'Pushing to cloud…');
+  fbDb.collection('users').doc(fbUid).collection('dashboardx').doc('data')
+    .set({ data: data, updatedAt: Date.now() })
+    .then(function() {
+      setStatus('synced');
+      updateLastSaved(Date.now());
+      showToast('✅ Data pushed to cloud!');
+    })
+    .catch(function(e) {
+      setStatus('error', 'Push failed');
+      showToast('⚠️ Push failed: ' + e.message);
+    });
 }
 
 function fbSignOut() {
@@ -2016,30 +2043,7 @@ function clearAndReload(){
 })();
 </script>
 
-<!-- Firebase — single script load with guaranteed init order -->
 <script>
-// Dynamically load Firebase compat scripts then init — guarantees correct order
-(function loadFirebase() {
-  var scripts = [
-    'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js',
-    'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js',
-    'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js'
-  ];
-  var loaded = 0;
-  scripts.forEach(function(src) {
-    var s = document.createElement('script');
-    s.src = src;
-    s.onload = function() {
-      loaded++;
-      if (loaded === scripts.length) initFirebase();
-    };
-    s.onerror = function() {
-      setStatus('error', 'Firebase failed to load');
-    };
-    document.head.appendChild(s);
-  });
-})();
-
 function initFirebase() {
 (function() {
   var FB = {
@@ -2096,14 +2100,49 @@ function initFirebase() {
   auth.onAuthStateChanged(function(user) {
     if (user) {
       fbUid = user.uid;
+      fbDb  = db; // ensure db is set before sync
+      showToast('🔐 Signed in: ' + (user.email||user.uid.slice(0,8)));
       showApp(user);
-      startFirestoreSync(user.uid);
+      // First: try to push local data up (in case Firestore doc is empty)
+      // startFirestoreSync will then pull whatever is in Firestore
+      var localHasData = Object.keys(data).some(function(k) {
+        return Object.keys(data[k]).some(function(s) {
+          return s !== '__habits__' && (data[k][s].tasks||[]).length > 0;
+        });
+      });
+      if (localHasData) {
+        // Push local data to Firestore first, then start listener
+        db.collection('users').doc(user.uid).collection('dashboardx').doc('data')
+          .get().then(function(snap) {
+            if (!snap.exists) {
+              showToast('⬆ No cloud data found — uploading local data…');
+              return db.collection('users').doc(user.uid).collection('dashboardx').doc('data')
+                .set({ data: data, updatedAt: Date.now() });
+            } else {
+              showToast('☁️ Cloud data found — syncing…');
+            }
+          }).then(function() {
+            startFirestoreSync(user.uid);
+          }).catch(function(e) {
+            showToast('⚠️ Firestore error: ' + e.code + ' — ' + e.message);
+            startFirestoreSync(user.uid);
+          });
+      } else {
+        startFirestoreSync(user.uid);
+      }
     } else {
       showLoginScreen();
     }
   });
 })();
 } // end initFirebase
+
+// Call initFirebase once DOM is ready (SDKs in <head> will be loaded by then)
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initFirebase);
+} else {
+  initFirebase();
+}
 </script>
 </body>
 </html>
