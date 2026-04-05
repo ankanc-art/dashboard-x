@@ -430,6 +430,21 @@ td.today-col{background:rgba(232,98,74,.03);}
 /* ─── RESET DATA BUTTON (in footer) ─── */
 .foot-btn.reset:hover{background:var(--red-l);border-color:var(--red-b);color:var(--red);}
 
+
+/* ─── TASK PROGRESS BAR ─── */
+.task-pct-wrap{display:flex;align-items:center;gap:6px;margin-top:5px;}
+.task-pct-bar{flex:1;height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;max-width:120px;cursor:pointer;position:relative;}
+.task-pct-bar:hover{height:7px;transition:height .15s;}
+.task-pct-fill{height:100%;border-radius:3px;transition:width .3s ease;}
+.pct-0   .task-pct-fill{background:var(--border2);}
+.pct-low .task-pct-fill{background:#ef9a9a;}
+.pct-mid .task-pct-fill{background:#ffcc80;}
+.pct-high .task-pct-fill{background:#a5d6a7;}
+.pct-done .task-pct-fill{background:var(--sage);}
+.task-pct-num{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;min-width:28px;cursor:pointer;color:var(--ink3);transition:color .15s;}
+.task-pct-num:hover{color:var(--ink);}
+.task-pct-slider{width:80px;height:4px;accent-color:var(--sage);cursor:pointer;opacity:0;position:absolute;inset:0;width:100%;height:100%;}
+
 /* ─── MODAL ─── */
 .modal-ov{position:fixed;inset:0;background:rgba(30,26,20,.3);backdrop-filter:blur(6px);
   z-index:9000;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease;}
@@ -466,11 +481,8 @@ td.today-col{background:rgba(232,98,74,.03);}
 .as-l{display:flex;align-items:center;gap:6px;}
 .as-dot{width:7px;height:7px;border-radius:50%;background:var(--ink4);flex-shrink:0;transition:background .3s;}
 .as-dot.saving{background:var(--amber);animation:asbl .8s infinite;}
-.as-dot.synced{background:var(--sage);}
 .as-dot.saved{background:var(--sage);}
 .as-dot.error{background:var(--red);}
-.as-dot.offline{background:var(--sky);}
-.as-dot.connecting{background:var(--amber);animation:asbl .8s infinite;}
 @keyframes asbl{0%,100%{opacity:1;}50%{opacity:.3;}}
 .as-r{display:flex;align-items:center;gap:14px;color:var(--ink4);}
 .as-btn{color:var(--sky);cursor:pointer;text-decoration:underline;font-size:10px;background:none;border:none;
@@ -483,7 +495,7 @@ td.today-col{background:rgba(232,98,74,.03);}
 <body>
 
 <!-- SIDEBAR -->
-<aside class="sidebar" id="appSidebar" style="display:none">
+<aside class="sidebar">
   <div class="sb-brand">
     <div class="sb-logo">
       <div class="sb-icon">🗂</div>
@@ -566,40 +578,21 @@ td.today-col{background:rgba(232,98,74,.03);}
   </div>
 </aside>
 
-<!-- SYNC / AUTH BAR -->
-<div id="as-bar" style="display:none">
+<!-- AUTOSAVE BAR -->
+<div id="as-bar">
   <div class="as-l">
     <span class="as-dot" id="asDot"></span>
-    <span id="asTxt">Connecting…</span>
+    <span id="asTxt">Loading…</span>
   </div>
   <div class="as-r">
     <span id="asLastSaved"></span>
-    <span id="syncUser" style="display:none;align-items:center;gap:7px">
-      <img id="syncAvatar" src="" alt="" style="width:16px;height:16px;border-radius:50%;border:1px solid var(--border)">
-      <span id="syncName" style="font-size:10px;color:var(--ink3)"></span>
-      <button class="as-btn" id="signOutBtn">Sign out</button>
-    </span>
     <button class="as-btn" onclick="exportData()">⬇ Export</button>
-  </div>
-</div>
-
-<!-- LOGIN OVERLAY -->
-<div id="loginOverlay" style="display:flex;position:fixed;inset:0;background:var(--bg);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
-  <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:24px;padding:48px 44px;max-width:400px;width:90%;text-align:center;box-shadow:0 24px 64px rgba(30,26,20,.12)">
-    <div style="width:60px;height:60px;background:linear-gradient(135deg,var(--coral),#f5a07a);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 20px;box-shadow:0 8px 24px rgba(232,98,74,.3)">🗂</div>
-    <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:800;color:var(--ink);letter-spacing:-.5px;margin-bottom:6px">Dashboard X</div>
-    <div style="font-size:13px;color:var(--ink3);margin-bottom:28px;line-height:1.6">Sign in to sync your data across all devices automatically.</div>
-    <button id="googleSignInBtn" style="display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px 20px;background:var(--surface);border:1.5px solid var(--border2);border-radius:12px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;font-size:14px;font-weight:700;color:var(--ink);transition:all .2s;box-shadow:0 2px 8px rgba(30,26,20,.06)">
-      <svg width="22" height="22" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 19 12 24 12c3.1 0 5.8 1.1 7.9 3l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.5 26.8 36 24 36c-5.2 0-9.6-3.3-11.3-8H6.1C9.5 35.7 16.3 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.3 4.2-4.2 5.6l6.2 5.2C41.2 35.7 44 30.3 44 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
-      <span id="googleBtnTxt">Continue with Google</span>
-    </button>
-    <div id="loginErr" style="display:none;background:var(--red-l);border:1px solid var(--red-b);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);margin-top:14px;text-align:left;line-height:1.5;white-space:pre-wrap"></div>
-    <div style="font-size:11px;color:var(--ink4);margin-top:14px;line-height:1.5">Your data is stored privately under your Google account.</div>
+    <button class="as-btn danger" onclick="confirmClear()">✕ Clear all data</button>
   </div>
 </div>
 
 <!-- MAIN -->
-<main class="main" id="appMain" style="display:none">
+<main class="main">
   <div class="topbar">
     <div class="tb-left">
       <div class="tb-ico" id="tbIco">🌙</div>
@@ -649,7 +642,6 @@ const MF=['January','February','March','April','May','June','July','August','Sep
 // task: {id,text,completed,priority,deadline,completedAt,subheadId,createdAt}
 // ══════════════════════════════════════════════
 let data = {};
-window.__app = null; // set after init
 let curMonthKey = todayKey();
 let viewKey = todayKey();
 let curSec = '__dashboard__';
@@ -674,9 +666,12 @@ function ensureMonth(k){
     });
     if(!data[k].__habits__ || typeof data[k].__habits__!=='object') data[k].__habits__={categories:[]};
     if(!Array.isArray(data[k].__habits__.categories)) data[k].__habits__.categories=[];
-    // Migrate: add starred field to any task that's missing it
+    // Migrate: add starred and pct fields to any task missing them
     Object.keys(SECS).forEach(function(s){
-      (data[k][s]&&data[k][s].tasks||[]).forEach(function(t){if(t.starred===undefined)t.starred=false;});
+      (data[k][s]&&data[k][s].tasks||[]).forEach(function(t){
+        if(t.starred===undefined) t.starred=false;
+        if(t.pct===undefined) t.pct=t.completed?100:0;
+      });
     });
   }
 }
@@ -776,7 +771,7 @@ function doCopy(nk){
       data[nk][s].tasks.push({
         id:uid(),text:t.text,completed:false,priority:t.priority,
         deadline:t.deadline,completedAt:null,subheadId:newShId,
-        starred:false,createdAt:Date.now()
+        starred:false,pct:0,createdAt:Date.now()
       });
       added++;
     });
@@ -810,7 +805,7 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 function addTask(subheadId=null){
   ensureMonth(viewKey);
   data[viewKey][curSec].tasks.push({id:uid(),text:'',completed:false,priority:'low',
-    deadline:'',completedAt:null,subheadId:subheadId||null,starred:false,createdAt:Date.now()});
+    deadline:'',completedAt:null,subheadId:subheadId||null,starred:false,pct:0,createdAt:Date.now()});
   autoSave();
   render();
   setTimeout(()=>{const ins=document.querySelectorAll('.task-input');if(ins.length)ins[ins.length-1].focus();},40);
@@ -839,6 +834,33 @@ function cyclePriority(id){
   autoSave();
   render();
 }
+function updatePct(id,val){
+  const t=findTask(id);
+  if(!t) return;
+  const v=Math.min(100,Math.max(0,parseInt(val)||0));
+  t.pct=v;
+  // Auto-complete at 100%
+  if(v===100 && !t.completed){
+    t.completed=true;
+    t.completedAt=Date.now();
+  } else if(v<100 && t.completed && t.pct!==undefined){
+    t.completed=false;
+    t.completedAt=null;
+  }
+  autoSave();
+  render();
+}
+
+function movePctClick(id){
+  const t=findTask(id);
+  if(!t||t.completed) return;
+  // Cycle through 0→25→50→75→100 on click
+  const steps=[0,25,50,75,100];
+  const cur=t.pct||0;
+  const next=steps.find(s=>s>cur)||0;
+  updatePct(id,next);
+}
+
 function moveToSubhead(id,shId){
   const t=findTask(id);
   t.subheadId=shId||null;
@@ -1032,6 +1054,28 @@ function renderTask(t,subheads,isOld){
         <span class="ptag p-${t.priority}" onclick="${isOld?'':'cyclePriority(\''+t.id+'\')'}">${pLabel[t.priority]}</span>
         ${moveSelect}
       </div>
+      ${(()=>{
+        if(t.completed) return '';
+        const pv=t.pct||0;
+        const pcls=pv===0?'pct-0':pv<40?'pct-low':pv<80?'pct-mid':pv<100?'pct-high':'pct-done';
+        if(isOld){
+          return pv>0?`<div class="task-pct-wrap">
+            <div class="task-pct-bar ${pcls}" style="max-width:100px">
+              <div class="task-pct-fill" style="width:${pv}%"></div>
+            </div>
+            <span class="task-pct-num">${pv}%</span>
+          </div>`:'';
+        }
+        return `<div class="task-pct-wrap">
+          <div class="task-pct-bar ${pcls}" onclick="movePctClick('${t.id}')" title="Click to step progress, or drag slider">
+            <div class="task-pct-fill" style="width:${pv}%"></div>
+            <input type="range" class="task-pct-slider" min="0" max="100" step="5" value="${pv}"
+              oninput="updatePct('${t.id}',this.value)"
+              onclick="event.stopPropagation()"/>
+          </div>
+          <span class="task-pct-num" onclick="movePctClick('${t.id}')">${pv}%</span>
+        </div>`;
+      })()}
     </div>
     ${!isOld?`<button class="star-btn ${t.starred?'starred':''}" onclick="toggleStar('${t.id}')">⭐</button><button class="del-btn" onclick="deleteTask('${t.id}')">✕</button>`:''}
   </div>`;
@@ -1165,6 +1209,7 @@ function renderTodayPriorities(){
         h+='<div class="tdp-cb'+(t.completed?' tck':'')+'" data-tid="'+t.id+'" data-sec="'+t._sec+'" onclick="tdpToggle(this)">';
         h+='<span class="tdp-cbx">&#10003;</span></div>';
         h+='<span class="tdp-text">'+txt+'</span>';
+        var pv=t.pct||0;var pcls2=pv===0?'pct-0':pv<40?'pct-low':pv<80?'pct-mid':pv<100?'pct-high':'pct-done';if(!t.completed&&pv>0){h+='<div class="task-pct-bar '+pcls2+'" style="max-width:55px;margin-left:4px"><div class="task-pct-fill" style="width:'+pv+'%"></div></div><span class="task-pct-num" style="font-size:9px">'+pv+'%</span>';}
         h+=tsHtml;
         h+='<span class="tdp-pri" style="'+pCols[t.priority]+'">'+pLbl[t.priority]+'</span>';
         h+='</div>';
@@ -1711,70 +1756,79 @@ function switchSection(key,el){
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ══════════════════════════════════════════════
-// FIREBASE SYNC
+// AUTOSAVE — localStorage
 // ══════════════════════════════════════════════
-let _fbDb = null;
-let _fbUid = null;
-let _saveTimer = null;
-let _localOnly = false;
+const LS_KEY = 'dashboard-x_v3';
+let saveTimer = null;
 
-function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
-function lsSet(k,v){try{localStorage.setItem(k,v);return true;}catch(e){return false;}}
-const LS_KEY='dashboard-x_v3';
-
-function setStatus(state,msg){
-  try{
-    const dot=document.getElementById('asDot');
-    const txt=document.getElementById('asTxt');
-    if(!dot||!txt) return;
-    dot.className='as-dot '+state;
-    const labels={saving:'Saving…',synced:'Synced ✓',error:'Sync error',loading:'Loading…',offline:'Saved locally',connecting:'Connecting…'};
-    txt.textContent=msg||labels[state]||'';
-  }catch(e){}
+function setStatus(state, msg) {
+  const dot = document.getElementById('asDot');
+  const txt = document.getElementById('asTxt');
+  if (!dot || !txt) return;
+  dot.className = 'as-dot ' + state;
+  const labels = { saving:'Saving…', saved:'All changes saved', error:'Save error — check storage', loading:'Loading…', empty:'No saved data yet' };
+  txt.textContent = msg || labels[state] || '';
 }
 
-function updateLastSaved(ts){
-  try{
-    const el=document.getElementById('asLastSaved');
-    if(!el||!ts) return;
-    const d=new Date(ts);
-    el.textContent='Saved '+d.toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
-  }catch(e){}
+function updateLastSaved(ts) {
+  const el = document.getElementById('asLastSaved');
+  if (!el || !ts) return;
+  const d = new Date(ts);
+  el.textContent = 'Last saved ' + d.toLocaleString('en-IN', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true});
 }
 
-function initSync(db,uid){
-  _fbDb=db; _fbUid=uid; _localOnly=false;
-  setStatus('connecting');
-}
-
-function autoSave(){
-  clearTimeout(_saveTimer);
+function autoSave() {
+  clearTimeout(saveTimer);
   setStatus('saving');
-  _saveTimer=setTimeout(function(){
-    lsSet(LS_KEY,JSON.stringify({version:'3.0',savedAt:new Date().toISOString(),data:data}));
-    if(_fbDb&&_fbUid&&!_localOnly){
-      window._fbSave && window._fbSave(data);
-    } else {
-      setStatus('offline');
+  saveTimer = setTimeout(() => {
+    try {
+      const payload = { version:'3.0', savedAt: new Date().toISOString(), data };
+      try{localStorage.setItem(LS_KEY, JSON.stringify(payload));}catch(e){setStatus('error','Storage unavailable');return;}
+      setStatus('saved');
       updateLastSaved(Date.now());
+    } catch(e) {
+      setStatus('error');
+      showToast('⚠️ Auto-save failed: ' + e.message);
     }
-  },800);
+  }, 600);
 }
 
-function loadFromStorage(){
-  try{
-    const raw=lsGet(LS_KEY);
-    if(!raw){setStatus('offline','No saved data');return false;}
-    const p=JSON.parse(raw);
-    if(p&&p.data){
-      data=p.data;
-      Object.keys(data).forEach(function(k){ensureMonth(k);});
-      try{updateLastSaved(new Date(p.savedAt).getTime());}catch(e){}
+function loadFromStorage() {
+  setStatus('loading');
+  try {
+    const raw = (function(){try{return localStorage.getItem(LS_KEY);}catch(e){return null;}})();
+    if (!raw) { setStatus('empty'); return false; }
+    const p = JSON.parse(raw);
+    if (p.data) {
+      data = p.data;
+      // Deep-clean: ensure every loaded month has valid structure
+      if(typeof data !== 'object' || data === null) data = {};
+      Object.keys(data).forEach(k => ensureMonth(k));
+      setStatus('saved');
+      updateLastSaved(new Date(p.savedAt).getTime());
       return true;
     }
-  }catch(e){}
+  } catch(e) {
+    setStatus('error', 'Failed to load saved data');
+    showToast('⚠️ Could not restore data: ' + e.message);
+  }
   return false;
 }
+
+function confirmClear() {
+  showModal('🗑️','Clear All Data',
+    'This will permanently delete <strong>all tasks and months</strong> from this browser.<br><br>Export a backup first if you want to keep it.',
+    () => {
+      localStorage.removeItem(LS_KEY);
+      data = {};
+      ensureMonth(curMonthKey);
+      setStatus('empty');
+      document.getElementById('asLastSaved').textContent = '';
+      render();
+      showToast('🗑️ All data cleared');
+    });
+}
+
 // ══════════════════════════════════════════════
 // EXPORT / IMPORT (manual backup)
 // ══════════════════════════════════════════════
@@ -1857,222 +1911,21 @@ function clearAndReload(){
 // INIT
 // ══════════════════════════════════════════════
 (function(){
-  try{
+  try {
     ensureMonth(curMonthKey);
-    try{
-      const hadData=loadFromStorage();
-      if(!hadData) ensureMonth(curMonthKey);
-    }catch(e){ ensureMonth(curMonthKey); }
+    try {
+      const hadData = loadFromStorage();
+      if (!hadData) ensureMonth(curMonthKey);
+    } catch(e) {
+      ensureMonth(curMonthKey);
+    }
     render();
-    // Expose app internals for the Firebase module to use
-    window.__app = {
-      getData: function(){ return data; },
-      setData: function(d){ data=d; },
-      ensureMonth: ensureMonth,
-      render: render,
-      getCurMonthKey: function(){ return curMonthKey; },
-      autoSave: autoSave,
-      setStatus: setStatus,
-      updateLastSaved: updateLastSaved,
-      showToast: showToast
-    };
-  }catch(e){
-    const mc=document.getElementById('mainContent');
-    if(mc) mc.innerHTML='<div style="padding:40px;font-family:sans-serif;color:#c62828"><b>&#9888; Error: '+(e.message||'unknown')+'</b><br><br><button onclick="clearAndReload()" style="margin-top:12px;padding:8px 16px;background:#e8624a;color:white;border:none;border-radius:6px;cursor:pointer">Clear data &amp; reload</button></div>';
+  } catch(e) {
+    // Show error in main content area so screen is never blank
+    const mc = document.getElementById('mainContent');
+    if (mc) mc.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#c62828"><b>&#9888; Error: ' + (e.message||'unknown') + '</b><br><br><button onclick="clearAndReload()" style="margin-top:12px;padding:8px 16px;background:#e8624a;color:white;border:none;border-radius:6px;cursor:pointer">Clear data &amp; reload</button></div>';
   }
 })();
 </script>
-
-
-<!-- Firebase compat SDK (works in regular script, no module scope issues) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
-<script>
-// ── Firebase init (runs in same scope as main app) ────────────────────────
-const FB_CONFIG = {
-  apiKey:"AIzaSyCXQKH1TF3qdOGUQzDPCJ73XYOwMcM89xM",
-  authDomain:"dashboard-00-4385d.firebaseapp.com",
-  projectId:"dashboard-00-4385d",
-  storageBucket:"dashboard-00-4385d.firebasestorage.app",
-  messagingSenderId:"762859100454",
-  appId:"1:762859100454:web:dea2e8c54768dd0bbbc9e7"
-};
-
-firebase.initializeApp(FB_CONFIG);
-const fbAuth = firebase.auth();
-const fbDb   = firebase.firestore();
-
-let _fbUid   = null;
-let _fbUnsub = null;
-let _authHandled = false;
-
-// Detect iOS/Safari for redirect vs popup decision
-const _isIOS    = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-const _isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-const _useRedirect = _isIOS || _isSafari;
-
-// ── UI ────────────────────────────────────────────────────────
-function showLoginScreen(msg) {
-  document.getElementById('loginOverlay').style.display = 'flex';
-  ['appSidebar','appMain','as-bar'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-  var btn  = document.getElementById('googleSignInBtn');
-  var btxt = document.getElementById('googleBtnTxt');
-  if (btn)  btn.disabled = false;
-  if (btxt) btxt.textContent = 'Continue with Google';
-  if (msg) {
-    var err = document.getElementById('loginErr');
-    if (err) { err.style.display = 'block'; err.textContent = msg; }
-  }
-}
-
-function showApp(user) {
-  _authHandled = true;
-  document.getElementById('loginOverlay').style.display = 'none';
-  document.getElementById('appSidebar').style.display = 'flex';
-  document.getElementById('appMain').style.display    = 'flex';
-  document.getElementById('as-bar').style.display     = 'flex';
-  if (user) {
-    var av = document.getElementById('syncAvatar');
-    var nm = document.getElementById('syncName');
-    var su = document.getElementById('syncUser');
-    if (av) av.src = user.photoURL || '';
-    if (nm) nm.textContent = user.displayName || user.email || '';
-    if (su) su.style.display = 'flex';
-  }
-}
-
-// ── Firestore sync ────────────────────────────────────────────
-function fbUserRef(uid) {
-  return fbDb.collection('users').doc(uid).collection('dashboardx').doc('data');
-}
-
-function startFbSync(uid) {
-  if (_fbUnsub) { _fbUnsub(); _fbUnsub = null; }
-  setStatus('connecting');
-  _fbUnsub = fbUserRef(uid).onSnapshot(function(snap) {
-    if (snap.exists) {
-      var d = snap.data();
-      if (d && d.data) {
-        data = d.data; // direct assignment — same scope!
-        Object.keys(data).forEach(function(k) { ensureMonth(k); });
-      }
-    }
-    ensureMonth(curMonthKey);
-    render();
-    setStatus('synced');
-    updateLastSaved(Date.now());
-  }, function(err) {
-    setStatus('error', 'Sync error');
-    showToast('⚠️ ' + err.message);
-  });
-}
-
-// Called by autoSave() via window._fbSave
-window._fbSave = function(d) {
-  if (!_fbUid) return;
-  fbUserRef(_fbUid).set({ data: d, updatedAt: Date.now() })
-    .then(function() { setStatus('synced'); updateLastSaved(Date.now()); })
-    .catch(function(e) { setStatus('error','Save failed'); showToast('⚠️ ' + e.message); });
-};
-
-// ── Sign in ───────────────────────────────────────────────────
-function doGoogleSignIn() {
-  var btn  = document.getElementById('googleSignInBtn');
-  var btxt = document.getElementById('googleBtnTxt');
-  var err  = document.getElementById('loginErr');
-  if (err)  err.style.display = 'none';
-  if (btn)  btn.disabled = true;
-
-  var prov = new firebase.auth.GoogleAuthProvider();
-  prov.addScope('email');
-  prov.addScope('profile');
-  prov.setCustomParameters({ prompt: 'select_account' });
-
-  fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
-    if (_useRedirect) {
-      if (btxt) btxt.textContent = 'Redirecting to Google…';
-      return fbAuth.signInWithRedirect(prov);
-    } else {
-      if (btxt) btxt.textContent = 'Opening Google…';
-      return fbAuth.signInWithPopup(prov).then(function(result) {
-        if (result.user) {
-          _fbUid = result.user.uid;
-          showApp(result.user);
-          startFbSync(result.user.uid);
-        }
-      });
-    }
-  }).catch(function(e) {
-    var msgs = {
-      'auth/popup-closed-by-user': 'Sign-in cancelled.',
-      'auth/cancelled-popup-request': 'Sign-in cancelled.',
-      'auth/popup-blocked': 'Popup blocked — allow popups for this site and retry.',
-      'auth/unauthorized-domain': '❌ Domain not authorised.
-
-Go to Firebase Console → Authentication → Authorised domains → Add: ankanc-art.github.io',
-      'auth/network-request-failed': '❌ Network error. Check your connection.',
-    };
-    showLoginScreen(msgs[e.code] || ('Error: ' + e.message + ' (' + e.code + ')'));
-  });
-}
-
-// ── Sign out ──────────────────────────────────────────────────
-function doSignOut() {
-  if (_fbUnsub) { _fbUnsub(); _fbUnsub = null; }
-  _fbUid = null;
-  _authHandled = false;
-  fbAuth.signOut().catch(function(){});
-  data = {};
-  var su = document.getElementById('syncUser');
-  if (su) su.style.display = 'none';
-  showLoginScreen();
-  showToast('👋 Signed out');
-}
-
-// ── Handle redirect result (iOS/Safari returning from Google) ─
-fbAuth.getRedirectResult().then(function(result) {
-  if (result && result.user) {
-    _fbUid = result.user.uid;
-    showApp(result.user);
-    startFbSync(result.user.uid);
-  }
-}).catch(function(e) {
-  if (e.code !== 'auth/no-current-user' && e.code !== 'auth/null-user') {
-    var msgs = {
-      'auth/unauthorized-domain': '❌ Domain not authorised.
-
-Add ankanc-art.github.io to Firebase Console → Authentication → Authorised domains.'
-    };
-    showLoginScreen(msgs[e.code] || ('Sign-in error: ' + e.message));
-  }
-});
-
-// ── Persistent auth state (returning users) ───────────────────
-fbAuth.onAuthStateChanged(function(user) {
-  if (_authHandled) return; // already handled above
-  if (user) {
-    _fbUid = user.uid;
-    showApp(user);
-    startFbSync(user.uid);
-  } else {
-    showLoginScreen();
-  }
-});
-
-// ── Wire sign-in button (inline onclick works — same scope now) ─
-// Button already has onclick="doGoogleSignIn()" — add it back
-document.addEventListener('DOMContentLoaded', function() {
-  var btn = document.getElementById('googleSignInBtn');
-  if (btn) btn.onclick = doGoogleSignIn;
-  var sob = document.getElementById('signOutBtn');
-  if (sob) sob.onclick = doSignOut;
-});
-</script>
-
 </body>
 </html>
