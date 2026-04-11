@@ -543,6 +543,68 @@ td.today-col{background:rgba(232,98,74,.03);}
   color:var(--mauve);min-width:30px;text-align:right;}
 .allin-dash-empty{padding:20px;text-align:center;font-size:13px;color:var(--ink3);font-style:italic;}
 
+
+/* ─── TODAY'S PRIORITIES REDESIGN ─── */
+.tdp2{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);
+  overflow:hidden;box-shadow:0 2px 12px rgba(30,26,20,.07);margin-bottom:20px;}
+.tdp2-hd{padding:11px 18px 9px;background:linear-gradient(135deg,#fffde7,#fff9c4);
+  border-bottom:1.5px solid #f5e642;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.tdp2-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;font-weight:700;
+  color:#7a6000;display:flex;align-items:center;gap:6px;}
+.tdp2-date{font-family:'JetBrains Mono',monospace;font-size:10px;color:#b09030;margin-left:4px;}
+.tdp2-cols{display:grid;grid-template-columns:1fr 1fr;gap:0;min-height:200px;}
+@media(max-width:640px){.tdp2-cols{grid-template-columns:1fr;}}
+
+/* Systems column */
+.tdp2-sys{border-right:1px solid var(--border);padding:0;}
+.tdp2-col-hd{padding:8px 14px 6px;background:var(--surface2);border-bottom:1px solid var(--border);
+  font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;
+  color:var(--ink2);letter-spacing:.3px;display:flex;align-items:center;gap:6px;}
+.tdp2-sys-row{display:flex;align-items:center;gap:8px;padding:6px 14px;
+  border-bottom:1px solid var(--border);transition:background .12s;}
+.tdp2-sys-row:last-child{border-bottom:none;}
+.tdp2-sys-row:hover{background:var(--bg2);}
+.tdp2-sys-emoji{font-size:13px;flex-shrink:0;width:18px;text-align:center;}
+.tdp2-sys-label{font-size:10px;font-weight:700;color:var(--ink3);min-width:52px;
+  font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.3px;flex-shrink:0;}
+.tdp2-sys-input{flex:1;border:none;background:transparent;font-family:'Plus Jakarta Sans',sans-serif;
+  font-size:12px;font-weight:500;color:var(--ink);outline:none;min-width:0;
+  border-bottom:1px dashed transparent;transition:border-color .15s;}
+.tdp2-sys-input:focus{border-bottom-color:var(--amber);}
+.tdp2-sys-input::placeholder{color:var(--ink4);font-style:italic;}
+.tdp2-sys-done .tdp2-sys-input{text-decoration:line-through;color:var(--ink4);}
+.tdp2-sys-cb{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border2);
+  background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .15s;}
+.tdp2-sys-cb:hover{border-color:var(--sage);}
+.tdp2-sys-cb.done{background:var(--sage);border-color:var(--sage);}
+.tdp2-sys-cbx{display:none;color:#fff;font-size:9px;font-weight:800;}
+.tdp2-sys-cb.done .tdp2-sys-cbx{display:block;}
+
+/* Goals column */
+.tdp2-goals{padding:0;}
+.tdp2-goal-row{display:flex;align-items:center;gap:8px;padding:6px 14px;
+  border-bottom:1px solid var(--border);transition:background .12s;}
+.tdp2-goal-row:last-child{border-bottom:none;}
+.tdp2-goal-row:hover{background:var(--bg2);}
+.tdp2-goal-row.gdone{opacity:.6;}
+.tdp2-goal-sec{font-size:11px;flex-shrink:0;width:18px;text-align:center;}
+.tdp2-goal-text{flex:1;font-size:12px;font-weight:500;color:var(--ink);min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tdp2-goal-row.gdone .tdp2-goal-text{text-decoration:line-through;color:var(--ink3);}
+.tdp2-goal-cb{width:16px;height:16px;border-radius:4px;border:1.5px solid #f5c842;
+  background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .15s;}
+.tdp2-goal-cb:hover{background:#fffde7;}
+.tdp2-goal-cb.done{background:#f9a825;border-color:#f9a825;}
+.tdp2-goal-cbx{display:none;color:#fff;font-size:9px;font-weight:800;}
+.tdp2-goal-cb.done .tdp2-goal-cbx{display:block;}
+.tdp2-goal-unstar{width:16px;height:16px;border-radius:4px;border:none;background:transparent;
+  color:var(--ink4);font-size:11px;cursor:pointer;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;transition:all .15s;}
+.tdp2-goal-unstar:hover{background:var(--red-l);color:var(--red);}
+.tdp2-empty-col{padding:20px 14px;font-size:12px;color:var(--ink3);font-style:italic;text-align:center;}
+
 /* ─── MODAL ─── */
 .modal-ov{position:fixed;inset:0;background:rgba(30,26,20,.3);backdrop-filter:blur(6px);
   z-index:9000;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease;}
@@ -1209,6 +1271,82 @@ function renderTask(t,subheads,isOld){
 
 
 
+
+// ══════════════════════════════════════════════
+// SYSTEMS (daily baseline tasks)
+// ══════════════════════════════════════════════
+
+function todayStr(){
+  var d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function yesterdayStr(){
+  var d=new Date();
+  d.setDate(d.getDate()-1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function getSystems(){
+  var mk=curMonthKey;
+  if(!data[mk]) ensureMonth(mk);
+  if(!data[mk].__systems__) data[mk].__systems__={};
+  var today=todayStr();
+  if(!data[mk].__systems__[today]){
+    // Pre-fill from yesterday if available
+    var yday=yesterdayStr();
+    var ydata=data[mk].__systems__[yday]||{};
+    data[mk].__systems__[today]={};
+    Object.keys(SECS).forEach(function(s){
+      var yt=ydata[s]||{};
+      data[mk].__systems__[today][s]={
+        text: yt.text||'',    // carry forward text
+        completed: false,     // always reset completed
+        completedAt: null
+      };
+    });
+    autoSave();
+  }
+  return data[mk].__systems__[today];
+}
+
+function updateSystemText(secKey,val){
+  var sys=getSystems();
+  if(!sys[secKey]) sys[secKey]={text:'',completed:false,completedAt:null};
+  sys[secKey].text=val;
+  autoSave();
+}
+
+function toggleSystemDone(secKey){
+  var sys=getSystems();
+  if(!sys[secKey]) sys[secKey]={text:'',completed:false,completedAt:null};
+  sys[secKey].completed=!sys[secKey].completed;
+  sys[secKey].completedAt=sys[secKey].completed?Date.now():null;
+  autoSave();
+  renderDashboard();
+}
+
+// ══════════════════════════════════════════════
+// GOALS auto-unstar: at day rollover, unstar all completed starred tasks
+// ══════════════════════════════════════════════
+function checkGoalRollover(){
+  var mk=curMonthKey;
+  if(!data[mk]) return;
+  var today=todayStr();
+  var lastCheck=data[mk].__goalRolloverDate__;
+  if(lastCheck===today) return; // already done today
+  if(lastCheck && lastCheck!==today){
+    // New day — unstar all completed starred tasks in current month
+    Object.keys(SECS).forEach(function(s){
+      (data[mk][s]&&data[mk][s].tasks||[]).forEach(function(t){
+        if(t.starred&&t.completed) t.starred=false;
+      });
+    });
+  }
+  data[mk].__goalRolloverDate__=today;
+  autoSave();
+}
+
 // ══════════════════════════════════════════════
 // TODAY'S PRIORITIES
 // ══════════════════════════════════════════════
@@ -1287,65 +1425,101 @@ function confirmResetReload(){
 }
 
 function renderTodayPriorities(){
-  var sAll=getStarredTasks();
-  var sDone=sAll.filter(function(t){return t.completed;}).length;
-  var sTotal=sAll.length;
-  var sPct=sTotal>0?Math.round(sDone/sTotal*100):0;
-  var sBySec={};
-  Object.keys(SECS).forEach(function(s){
-    var ts=sAll.filter(function(t){return t._sec===s;});
-    if(ts.length) sBySec[s]=ts;
-  });
-  var pCols={
+  // Run rollover check on every render
+  checkGoalRollover();
+
+  var sys = getSystems();
+  var today = todayStr();
+  var d = new Date();
+  var dateLabel = d.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'});
+
+  // Goals: all starred tasks from current month
+  var goals = getStarredTasks();
+  var goalsDone = goals.filter(function(t){return t.completed;}).length;
+
+  var pCols = {
     high:'color:var(--coral);background:var(--coral-l);border:1px solid var(--coral-b)',
     med:'color:var(--amber);background:var(--amber-l);border:1px solid var(--amber-b)',
     low:'color:var(--sage);background:var(--sage-l);border:1px solid var(--sage-b)'
   };
-  var pLbl={high:'HIGH',med:'MED',low:'LOW'};
+  var pLbl = {high:'H',med:'M',low:'L'};
 
-  var h='<div class="tdp">';
-  h+='<div class="tdp-hd"><div>';
-  h+='<div class="tdp-title">&#11088; Today\'s Priorities</div>';
-  h+='<div class="tdp-sub">'+sTotal+' starred'+(sTotal!==1?' tasks':' task')+' &middot; '+sDone+' done</div>';
-  h+='</div><div class="tdp-right">';
-  if(sTotal>0){
-    h+='<div class="tdp-prog-wrap"><div class="tdp-prog-bar"><div class="tdp-prog-fill" style="width:'+sPct+'%"></div></div>';
-    h+='<span class="tdp-prog-txt">'+sDone+'/'+sTotal+'</span></div>';
+  var h = '<div class="tdp2">';
+
+  // Header
+  h += '<div class="tdp2-hd">';
+  h += '<div class="tdp2-title">&#11088; Today\'s Priorities <span class="tdp2-date">'+dateLabel+'</span></div>';
+  h += '<div class="tdp-right" style="gap:8px">';
+  if(goals.length>0){
+    h += '<span style="font-family:JetBrains Mono,monospace;font-size:10px;color:#7a6000">Goals: '+goalsDone+'/'+goals.length+'</span>';
   }
-  h+='<button class="tdp-reset-btn" onclick="doStarReset()">&#10005; Clear Stars</button>';
-  h+='</div></div>';
-  h+='<div class="tdp-body">';
+  h += '<button class="tdp-reset-btn" onclick="doStarReset()">&#10005; Clear Goals</button>';
+  h += '</div></div>';
 
-  if(sTotal===0){
-    h+='<div class="tdp-empty">No starred tasks yet &mdash; tap &#11088; on any task to pin it here</div>';
+  // Two-column body
+  h += '<div class="tdp2-cols">';
+
+  // ── LEFT: Systems ──
+  h += '<div class="tdp2-sys">';
+  h += '<div class="tdp2-col-hd">&#9881; Systems <span style="font-size:9px;font-weight:400;color:var(--ink4);margin-left:4px">daily baseline</span></div>';
+
+  Object.keys(SECS).forEach(function(s){
+    var sec = SECS[s];
+    var entry = sys[s] || {text:'',completed:false};
+    var isDone = !!entry.completed;
+    h += '<div class="tdp2-sys-row'+(isDone?' tdp2-sys-done':'')+'">';
+    h += '<span class="tdp2-sys-emoji">'+sec.emoji+'</span>';
+    h += '<span class="tdp2-sys-label">'+sec.label.split(' ')[0].slice(0,7)+'</span>';
+    h += '<input class="tdp2-sys-input" value="'+esc(entry.text||'')+'" placeholder="Set baseline…"';
+    h += ' oninput="updateSystemText(\''+s+'\',this.value)" />';
+    h += '<div class="tdp2-sys-cb'+(isDone?' done':'')+'" onclick="toggleSystemDone(\''+s+'\')">';
+    h += '<span class="tdp2-sys-cbx">&#10003;</span></div>';
+    h += '</div>';
+  });
+
+  h += '</div>'; // end sys
+
+  // ── RIGHT: Goals ──
+  h += '<div class="tdp2-goals">';
+  h += '<div class="tdp2-col-hd">&#11088; Goals <span style="font-size:9px;font-weight:400;color:var(--ink4);margin-left:4px">starred tasks</span></div>';
+
+  if(goals.length===0){
+    h += '<div class="tdp2-empty-col">No starred tasks yet<br>Tap &#11088; on any task to add it here</div>';
   } else {
-    Object.keys(sBySec).forEach(function(secKey){
-      var sec=SECS[secKey];
-      var ts=sBySec[secKey];
-      var sd=ts.filter(function(t){return t.completed;}).length;
-      h+='<div class="tdp-section"><div class="tdp-sec-hd">';
-      h+='<span style="font-size:14px">'+sec.emoji+'</span>';
-      h+='<span class="tdp-sec-label">'+sec.label+'</span>';
-      h+='<span class="tdp-sec-count">'+sd+'/'+ts.length+'</span>';
-      h+='</div>';
-      ts.forEach(function(t){
-        var txt=esc(t.text)||'<em style="opacity:.4">Untitled</em>';
-        var tsHtml=t.completed&&t.completedAt?'<span class="tdp-ts">&#10003; '+fmtTs(t.completedAt)+'</span>':'';
-        h+='<div class="tdp-row'+(t.completed?' tdone':'')+'">';
-        h+='<div class="tdp-cb'+(t.completed?' tck':'')+'" data-tid="'+t.id+'" data-sec="'+t._sec+'" onclick="tdpToggle(this)">';
-        h+='<span class="tdp-cbx">&#10003;</span></div>';
-        h+='<span class="tdp-text">'+txt+'</span>';
-        var pv=t.pct||0;var pcls2=pv===0?'pct-0':pv<40?'pct-low':pv<80?'pct-mid':pv<100?'pct-high':'pct-done';if(!t.completed&&pv>0){h+='<div class="task-pct-bar '+pcls2+'" style="max-width:55px;margin-left:4px"><div class="task-pct-fill" style="width:'+pv+'%"></div></div><span class="task-pct-num" style="font-size:9px">'+pv+'%</span>';}
-        h+=tsHtml;
-        h+='<span class="tdp-pri" style="'+pCols[t.priority]+'">'+pLbl[t.priority]+'</span>';
-        h+='</div>';
-      });
-      h+='</div>';
+    goals.forEach(function(t){
+      var txt = esc(t.text)||'<em style="opacity:.4">Untitled</em>';
+      var sec = SECS[t._sec]||{emoji:'•'};
+      h += '<div class="tdp2-goal-row'+(t.completed?' gdone':'')+'">';
+      // Checkbox
+      h += '<div class="tdp2-goal-cb'+(t.completed?' done':'')+'" data-tid="'+t.id+'" data-sec="'+t._sec+'" onclick="tdpToggle(this)">';
+      h += '<span class="tdp2-goal-cbx">&#10003;</span></div>';
+      // Section emoji
+      h += '<span class="tdp2-goal-sec" title="'+sec.label+'">'+sec.emoji+'</span>';
+      // Task text
+      h += '<span class="tdp2-goal-text" title="'+esc(t.text||'')+'">'+txt+'</span>';
+      // Priority pill (tiny)
+      h += '<span class="tdp-pri" style="'+pCols[t.priority]+';font-size:8px;padding:1px 5px">'+pLbl[t.priority]+'</span>';
+      // Un-star button
+      h += '<button class="tdp2-goal-unstar" title="Un-prioritise" onclick="unstarGoal(\''+t.id+'\',\''+t._sec+'\')">&#10005;</button>';
+      h += '</div>';
     });
   }
-  h+='</div></div>';
+
+  h += '</div>'; // end goals
+  h += '</div>'; // end cols
+  h += '</div>'; // end tdp2
+
   return h;
 }
+
+function unstarGoal(taskId, secKey){
+  var mk = viewKey;
+  var tasks = (data[mk]&&data[mk][secKey]&&data[mk][secKey].tasks)||[];
+  var t = tasks.find(function(t){return t.id===taskId;});
+  if(t){ t.starred=false; autoSave(); renderDashboard(); }
+}
+
+
 
 
 // ══════════════════════════════════════════════
@@ -2576,6 +2750,7 @@ function clearAndReload(){
     ensureMonth(curMonthKey);
     loadFromStorage();
     ensureMonth(curMonthKey);
+    checkGoalRollover();
     render();
     // Keep app hidden — Firebase will call showApp() once auth resolves
   } catch(e) {
