@@ -692,6 +692,9 @@ td.today-col{background:rgba(232,98,74,.03);}
       <span class="nav-txt">Summary</span>
       <span class="nav-badge" id="badge-__dashboard__">—</span>
     </div>
+    <div class="nav-item habit-item" data-section="__habits__" onclick="switchSection('__habits__',this)">
+      <span class="nav-emoji">🔥</span><span class="nav-txt">Habit Tracker</span><span class="nav-badge" id="badge-__habits__">0</span>
+    </div>
 
     <div class="nav-grp" style="margin-top:10px">Wellness</div>
     <div class="nav-item" data-section="sleep" onclick="switchSection('sleep',this)">
@@ -729,10 +732,6 @@ td.today-col{background:rgba(232,98,74,.03);}
     <div class="nav-grp" style="margin-top:10px;color:var(--mauve);font-weight:800">Special</div>
     <div class="nav-item" data-section="allin" onclick="switchSection('allin',this)" style="border-left:3px solid var(--mauve);background:var(--mauve-l)">
       <span class="nav-emoji">🎯</span><span class="nav-txt" style="font-weight:700">All In</span><span class="nav-badge" id="badge-allin">0</span>
-    </div>
-    <div class="nav-grp" style="margin-top:10px">Tracker</div>
-    <div class="nav-item habit-item" data-section="__habits__" onclick="switchSection('__habits__',this)">
-      <span class="nav-emoji">🔥</span><span class="nav-txt">Habit Tracker</span><span class="nav-badge" id="badge-__habits__">0</span>
     </div>
   </nav>
 
@@ -1008,7 +1007,7 @@ function toggleTask(id){
   autoSave();
   render();
 }
-function updateText(id,val){const t=findTask(id);if(t){t.text=val;autoSave();updateBadges();}}
+function updateText(id,val){const t=findTask(id);if(t){t.text=val;textSave();}}
 function updateDeadline(id,val){const t=findTask(id);if(t){t.deadline=val;autoSave();render();}}
 function deleteTask(id){
   if(data[viewKey]?.[curSec]?.tasks)
@@ -1080,7 +1079,7 @@ function addSubhead(){
 }
 function updateSubheadName(id,val){
   const sh=data[viewKey][curSec].subheads.find(s=>s.id===id);
-  if(sh){sh.name=val;autoSave();}
+  if(sh){sh.name=val;textSave();}
 }
 function deleteSubhead(id){
   (data[viewKey]?.[curSec]?.tasks||[]).forEach(t=>{if(t.subheadId===id) t.subheadId=null;});
@@ -1321,7 +1320,7 @@ function updateSystemText(secKey,val){
   var sys=getSystems();
   if(!sys[secKey]) sys[secKey]={text:'',completed:false,completedAt:null};
   sys[secKey].text=val;
-  autoSave();
+  textSave(); // no re-render — just save silently
 }
 
 function toggleSystemDone(secKey){
@@ -1628,7 +1627,7 @@ function toggleAITask(id){
 }
 
 function updateAIText(id,val){
-  var t=findAITask(id); if(t){t.text=val;autoSave();}
+  var t=findAITask(id); if(t){t.text=val;textSave();}
 }
 
 function updateAIPriority(id){
@@ -1680,7 +1679,7 @@ function deleteAISubtask(taskId,stId){
 function updateAISubtaskText(taskId,stId,val){
   var t=findAITask(taskId); if(!t) return;
   var st=(t.subtasks||[]).find(function(s){return s.id===stId;}); if(!st) return;
-  st.text=val; autoSave();
+  st.text=val; textSave();
 }
 
 function toggleAISubtask(taskId,stId){
@@ -1735,7 +1734,7 @@ function addAISubhead(){
 
 function updateAISubheadName(id,val){
   var sh=(data[viewKey]?.allin?.subheads||[]).find(function(s){return s.id===id;});
-  if(sh){sh.name=val;autoSave();}
+  if(sh){sh.name=val;textSave();}
 }
 
 function toggleAISubhead(id){
@@ -2197,6 +2196,45 @@ function renderDashboard(){
     </div>
   </div>`;
 
+  // ── Habit Tracker summary ──
+  (function(){
+    var hd=getHD();
+    var cats=hd.categories||[];
+    if(cats.length>0){
+      var today=new Date();
+      var todayKey2=String(today.getDate());
+      var totalHabits=0;
+      var doneToday=0;
+      cats.forEach(function(cat){
+        (cat.habits||[]).forEach(function(h){
+          totalHabits++;
+          if(h.checks&&h.checks[todayKey2]) doneToday++;
+        });
+      });
+      var pct=totalHabits>0?Math.round(doneToday/totalHabits*100):0;
+      var pctCol=pct<40?'var(--red)':pct<80?'var(--amber)':'var(--sage)';
+      html+='<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);margin-bottom:18px;overflow:hidden;">';
+      html+='<div style="padding:10px 16px 8px;background:var(--sky-l);border-bottom:1px solid var(--sky-b);display:flex;align-items:center;justify-content:space-between">';
+      html+='<div style="font-family:Fraunces,serif;font-size:15px;font-weight:800;color:var(--sky)">📓 Habits Today</div>';
+      html+='<div style="display:flex;align-items:center;gap:10px">';
+      html+='<span style="font-family:JetBrains Mono,monospace;font-size:11px;font-weight:700;color:'+pctCol+'">'+doneToday+'/'+totalHabits+' &nbsp;'+pct+'%</span>';
+      html+='<button class="subhd-btn" onclick="goToHabits()" style="color:var(--sky);border-color:var(--sky-b);background:var(--sky-l);font-size:10px">Open &#8594;</button>';
+      html+='</div></div>';
+      html+='<div style="padding:8px 16px;display:flex;flex-wrap:wrap;gap:8px">';
+      cats.forEach(function(cat){
+        var catHabits=cat.habits||[];
+        var catDone=catHabits.filter(function(h){return h.checks&&h.checks[todayKey2];}).length;
+        var catPct=catHabits.length>0?Math.round(catDone/catHabits.length*100):0;
+        var catCol=catPct<40?'var(--red)':catPct<80?'var(--amber)':'var(--sage)';
+        html+='<div style="display:flex;align-items:center;gap:5px;background:var(--bg2);border-radius:8px;padding:4px 10px 4px 8px">';
+        html+='<span style="font-size:12px">'+esc(cat.name||'—')+'</span>';
+        html+='<span style="font-family:JetBrains Mono,monospace;font-size:10px;font-weight:700;color:'+catCol+'">'+catDone+'/'+catHabits.length+'</span>';
+        html+='</div>';
+      });
+      html+='</div></div>';
+    }
+  })();
+
   // ── All In — Special Projects card (prominent)
   (function(){
     var aiTasks=(getMD().allin?.tasks)||[];
@@ -2513,6 +2551,10 @@ function goToAllin(){
   var el=document.querySelector('[data-section="allin"]');
   if(el) switchSection('allin',el);
 }
+function goToHabits(){
+  var el=document.querySelector('[data-section="__habits__"]');
+  if(el) switchSection('__habits__',el);
+}
 function switchSection(key,el){
   curSec=key;
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -2559,7 +2601,6 @@ function autoSave() {
     try {
       const payload = { version:'3.0', savedAt: new Date().toISOString(), data };
       lsSet(LS_KEY, JSON.stringify(payload));
-      // If Firebase is ready, write to RTDB
       if (fbDb && fbUid) {
         fbDb.ref('users/' + fbUid + '/dashboardx')
           .set({ data: data, updatedAt: Date.now() })
@@ -2572,7 +2613,28 @@ function autoSave() {
     } catch(e) {
       setStatus('error');
     }
-  }, 800);
+  }, 3000); // 3 second delay — long enough to not interrupt typing
+}
+
+// textSave: for typing inputs — saves data silently after 2.5s with NO re-render
+let textSaveTimer = null;
+function textSave() {
+  clearTimeout(textSaveTimer);
+  textSaveTimer = setTimeout(() => {
+    try {
+      const payload = { version:'3.0', savedAt: new Date().toISOString(), data };
+      lsSet(LS_KEY, JSON.stringify(payload));
+      if (fbDb && fbUid) {
+        fbDb.ref('users/' + fbUid + '/dashboardx')
+          .set({ data: data, updatedAt: Date.now() })
+          .then(function(){ setStatus('synced'); updateLastSaved(Date.now()); })
+          .catch(function(){ /* silent */ });
+      } else {
+        setStatus('saved');
+        updateLastSaved(Date.now());
+      }
+    } catch(e) {}
+  }, 2500);
 }
 
 function loadFromStorage() {
