@@ -1618,9 +1618,17 @@ function renderWeeklyPriorities(){
   var allStarred=getStarredTasks();
   var unassigned=getUnassignedGoals();
 
+  // Group goals by section AND day
+  var goalMap={}; // goalMap[secKey][dayStr] = [tasks]
+  Object.keys(SECS).forEach(function(s){ goalMap[s]={}; weekDays.forEach(function(ds){ goalMap[s][ds]=[]; }); });
+  weekDays.forEach(function(ds){
+    var dayGoals=getGoalsForDay(ds);
+    dayGoals.forEach(function(t){ if(goalMap[t._sec]) goalMap[t._sec][ds].push(t); });
+  });
+
   var h='<div class="wp">';
 
-  // ── Header ──
+  // Header
   h+='<div class="wp-hd">';
   h+='<div class="wp-title">&#128197; Weekly Priorities <span class="wp-date">'+weekLabel+'</span></div>';
   h+='<div style="display:flex;gap:8px;align-items:center">';
@@ -1628,60 +1636,68 @@ function renderWeeklyPriorities(){
   h+='<button class="tdp-reset-btn" onclick="doStarReset()">&#10005; Clear</button>';
   h+='</div></div>';
 
-  h+='<div class="wp-body">';
+  // Table: System | Fri | Sat | Sun | Mon | Tue | Wed | Thu
+  h+='<div style="overflow-x:auto">';
+  h+='<table style="width:100%;border-collapse:collapse;min-width:700px">';
 
-  // ── LEFT: Systems ──
-  h+='<div class="wp-sys">';
-  h+='<div class="wp-col-hd">&#9881; Systems</div>';
+  // Column headers
+  h+='<thead><tr>';
+  h+='<th style="text-align:left;padding:6px 10px;background:var(--surface2);border-bottom:1px solid var(--border);font-family:Plus Jakarta Sans,sans-serif;font-size:10px;font-weight:700;color:var(--ink2);min-width:200px;border-right:1px solid var(--border)">&#9881; Systems</th>';
+  weekDays.forEach(function(ds,idx){
+    var isT=isToday(ds);
+    var dayNum=ds.split('-')[2];
+    h+='<th style="text-align:center;padding:5px 4px;background:'+(isT?'#fffde7':'var(--surface2)')+';border-bottom:'+(isT?'2px solid #f5c842':'1px solid var(--border)')+';font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;color:'+(isT?'#7a6000':'var(--ink2)')+';min-width:80px;border-right:1px solid var(--border)">'+DAYS_SHORT[idx]+'<br><span style="font-size:8px;font-weight:400">'+parseInt(dayNum)+'</span></th>';
+  });
+  h+='</tr></thead><tbody>';
+
+  // One row per section
   Object.keys(SECS).forEach(function(secKey){
     var sec=SECS[secKey];
     var entry=sys[secKey]||{text:'',completed:false};
     var isDone=!!entry.completed;
     var streak=calcSystemStreak(secKey);
     var pct=calcSystemMonthPct(secKey);
-    h+='<div class="wp-sys-row'+(isDone?' sys-done':'')+'">';
-    h+='<span class="wp-sys-emoji">'+sec.emoji+'</span>';
-    h+='<div class="wp-sys-inner">';
-    h+='<div class="wp-sys-label">'+sec.label+'</div>';
+    var secGoals=goalMap[secKey];
+
+    h+='<tr style="border-bottom:1px solid var(--border)">';
+
+    // System cell
+    h+='<td style="padding:6px 8px;border-right:1px solid var(--border);vertical-align:top;'+(isDone?'background:var(--bg2)':'')+'">';
+    h+='<div style="display:flex;align-items:flex-start;gap:5px">';
+    h+='<span style="font-size:12px;flex-shrink:0;padding-top:1px">'+sec.emoji+'</span>';
+    h+='<div style="flex:1;min-width:0">';
+    h+='<div style="font-size:8px;font-weight:700;color:var(--ink3);font-family:JetBrains Mono,monospace;text-transform:uppercase;letter-spacing:.4px">'+sec.label+'</div>';
     h+='<input class="wp-sys-input" value="'+esc(entry.text||'')+'" placeholder="Baseline…"';
-    h+=' oninput="updateSystemText(\''+secKey+'\',this.value)"/>';
-    h+='<div class="wp-sys-meta">';
+    h+=' oninput="updateSystemText(\''+secKey+'\',this.value)" style="'+(isDone?'text-decoration:line-through;color:var(--ink4)':'')+'"/>';
+    h+='<div style="display:flex;gap:4px;margin-top:1px">';
     if(streak>0) h+='<span class="wp-streak">&#128293;'+streak+'d</span>';
     h+='<span class="wp-pct">'+pct+'%</span>';
     h+='</div></div>';
     h+='<div class="wp-sys-cb'+(isDone?' done':'')+'" onclick="toggleSystemDone(\''+secKey+'\')">';
     h+='<span class="wp-sys-cbx">&#10003;</span></div>';
-    h+='</div>';
-  });
-  h+='</div>'; // end sys
+    h+='</div></td>';
 
-  // ── RIGHT: Weekly Goals Grid ──
-  h+='<div class="wp-goals">';
-  h+='<div class="wp-col-hd" style="border-right:none">&#11088; Goals</div>';
-  h+='<div class="wp-goals-grid">';
-  weekDays.forEach(function(ds,idx){
-    var dayLabel=DAYS_SHORT[idx];
-    var dayNum=ds.split('-')[2];
-    var isT=isToday(ds);
-    var dayGoals=getGoalsForDay(ds);
-    h+='<div class="wp-day-col">';
-    h+='<div class="wp-day-hd'+(isT?' is-today':'')+'">'+dayLabel+'<span class="wp-day-num">'+parseInt(dayNum)+'</span></div>';
-    h+='<div class="wp-day-drop" ondragover="onGoalDragOver(event)" ondragleave="onGoalDragLeave(event)" ondrop="onGoalDrop(event,\''+ds+'\')">';
-    dayGoals.forEach(function(t){
-      var sec=SECS[t._sec]||{emoji:'•'};
-      h+='<div class="wp-goal-chip'+(t.completed?' gdone':'')+'" draggable="true" ondragstart="onGoalDragStart(\''+t.id+'\',\''+t._sec+'\')">';
-      h+='<div class="wp-goal-cb'+(t.completed?' done':'')+'" data-tid="'+t.id+'" data-sec="'+t._sec+'" onclick="event.stopPropagation();tdpToggle(this)">';
-      h+='<span class="wp-goal-cb-chk">&#10003;</span></div>';
-      h+='<span class="wp-goal-emoji">'+sec.emoji+'</span>';
-      h+='<span class="wp-goal-text" title="'+esc(t.text||'')+'">'+esc(t.text||'Untitled')+'</span>';
-      h+='<button class="wp-goal-x" onclick="event.stopPropagation();unstarGoal(\''+t.id+'\',\''+t._sec+'\')" title="Unstar">&#10005;</button>';
-      h+='</div>';
+    // 7 day cells for this section
+    weekDays.forEach(function(ds){
+      var dayGoals=secGoals[ds]||[];
+      var isT=isToday(ds);
+      h+='<td style="vertical-align:top;padding:3px;border-right:1px solid var(--border);'+(isT?'background:#fffdf0;':'')+'" ondragover="onGoalDragOver(event)" ondragleave="onGoalDragLeave(event)" ondrop="onGoalDrop(event,\''+ds+'\')">';
+      dayGoals.forEach(function(t){
+        h+='<div class="wp-goal-chip'+(t.completed?' gdone':'')+'" draggable="true" ondragstart="onGoalDragStart(\''+t.id+'\',\''+t._sec+'\')" title="'+esc(t.text||'')+'">';
+        h+='<div class="wp-goal-cb'+(t.completed?' done':'')+'" data-tid="'+t.id+'" data-sec="'+t._sec+'" onclick="event.stopPropagation();tdpToggle(this)">';
+        h+='<span class="wp-goal-cb-chk">&#10003;</span></div>';
+        h+='<span class="wp-goal-text">'+esc(t.text||'—')+'</span>';
+        h+='<button class="wp-goal-x" onclick="event.stopPropagation();unstarGoal(\''+t.id+'\',\''+t._sec+'\')" title="Unstar">&#10005;</button>';
+        h+='</div>';
+      });
+      if(dayGoals.length===0) h+='<div style="height:28px"></div>';
+      h+='</td>';
     });
-    if(dayGoals.length===0) h+='<div style="font-size:9px;color:var(--ink4);text-align:center;padding-top:12px">—</div>';
-    h+='</div>'; // end drop
-    h+='</div>'; // end day-col
+
+    h+='</tr>';
   });
-  h+='</div>'; // end grid
+
+  h+='</tbody></table></div>';
 
   // Backlog: unassigned starred tasks
   if(unassigned.length>0){
@@ -1689,7 +1705,7 @@ function renderWeeklyPriorities(){
     h+='<div class="wp-backlog-hd"><span>Unassigned ('+unassigned.length+')</span><span style="font-size:8px;color:var(--ink4)">Drag to a day</span></div>';
     h+='<div class="wp-backlog-drop" ondragover="onGoalDragOver(event)" ondragleave="onGoalDragLeave(event)" ondrop="onGoalDropBacklog(event)">';
     unassigned.forEach(function(t){
-      var sec=SECS[t._sec]||{emoji:'•'};
+      var sec=SECS[t._sec]||{emoji:'&bull;'};
       h+='<div class="wp-goal-chip" draggable="true" ondragstart="onGoalDragStart(\''+t.id+'\',\''+t._sec+'\')">';
       h+='<span class="wp-goal-emoji">'+sec.emoji+'</span>';
       h+='<span class="wp-goal-text" title="'+esc(t.text||'')+'">'+esc(t.text||'Untitled')+'</span>';
@@ -1698,9 +1714,7 @@ function renderWeeklyPriorities(){
     h+='</div></div>';
   }
 
-  h+='</div>'; // end goals
-  h+='</div>'; // end body
-  h+='</div>'; // end wp
+  h+='</div>';
   return h;
 }
 
