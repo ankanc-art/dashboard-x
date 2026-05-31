@@ -2810,9 +2810,10 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ══════════════════════════════════════════════
 const LS_KEY = 'dashboard-x_v3';
 let saveTimer  = null;
-let fbDb       = null;   // Firestore instance
+let fbDb       = null;   // Firebase RTDB instance
 let fbUid      = null;   // signed-in user UID
-let fbUnsub    = null;   // Firestore listener
+let fbUnsub    = null;   // RTDB listener
+let _lastWriteTs = 0;    // timestamp of last local write (suppress echo)
 let fbReady    = false;  // true once Firebase auth resolved
 
 function setStatus(state, msg) {
@@ -2842,10 +2843,11 @@ function autoSave() {
       const payload = { version:'3.0', savedAt: new Date().toISOString(), data };
       lsSet(LS_KEY, JSON.stringify(payload));
       if (fbDb && fbUid) {
+        _lastWriteTs = Date.now();
         fbDb.ref('users/' + fbUid + '/dashboardx')
-          .set({ data: data, updatedAt: Date.now() })
+          .set({ data: data, updatedAt: _lastWriteTs })
           .then(function(){ setStatus('synced'); updateLastSaved(Date.now()); })
-          .catch(function(e){ setStatus('error','Sync failed'); });
+          .catch(function(e){ setStatus('error','Sync failed: '+e.message); });
       } else {
         setStatus('saved');
         updateLastSaved(Date.now());
@@ -2865,8 +2867,9 @@ function textSave() {
       const payload = { version:'3.0', savedAt: new Date().toISOString(), data };
       lsSet(LS_KEY, JSON.stringify(payload));
       if (fbDb && fbUid) {
+        _lastWriteTs = Date.now();
         fbDb.ref('users/' + fbUid + '/dashboardx')
-          .set({ data: data, updatedAt: Date.now() })
+          .set({ data: data, updatedAt: _lastWriteTs })
           .then(function(){ setStatus('synced'); updateLastSaved(Date.now()); })
           .catch(function(){ /* silent */ });
       } else {
@@ -2953,6 +2956,13 @@ function startRTDBSync(uid) {
   fbUnsub = ref.on('value', function(snap) {
     var val = snap.val();
     if (val && val.data) {
+      // Skip re-render if this is an echo of our own write (within 5 seconds)
+      if (val.updatedAt && Math.abs(val.updatedAt - _lastWriteTs) < 5000) {
+        // Own write echo — just update status, don't re-render (prevents input focus loss)
+        setStatus('synced');
+        return;
+      }
+      // Data from another device — apply it
       data = val.data;
       Object.keys(data).forEach(function(k){ ensureMonth(k); });
       lsSet(LS_KEY, JSON.stringify({version:'3.0',savedAt:new Date().toISOString(),data:data}));
@@ -2960,6 +2970,7 @@ function startRTDBSync(uid) {
       render();
       setStatus('synced');
       updateLastSaved(Date.now());
+      showToast('☁️ Updated from another device');
     }
   }, function(e){
     setStatus('error', 'Sync lost');
