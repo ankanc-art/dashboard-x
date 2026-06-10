@@ -1498,23 +1498,30 @@ function getUnassignedGoals(){
   var all=getStarredTasks();
   var fri=getWeekStart();
   var weekDays=getWeekDays(fri);
+  // Last week's date range (the 7 days immediately before this week)
+  var lastFri=new Date(fri); lastFri.setDate(lastFri.getDate()-7);
+  var lastWeekDays=getWeekDays(lastFri);
   return all.filter(function(t){
+    if(t.completed) return false; // only unfinished
     var day=getGoalDay(t.id);
-    // Unassigned if: no day at all, OR assigned to a day outside the current week
-    if(!day) return true;
-    return weekDays.indexOf(day)===-1;
+    if(!day) return true; // never assigned → show
+    if(weekDays.indexOf(day)!==-1) return false; // already in this week → not in backlog
+    // Only surface if it was in LAST week (not older)
+    return lastWeekDays.indexOf(day)!==-1;
   });
 }
 
-// Clean up goal assignments pointing to dates before the current week (stale)
+// Clean up goal assignments older than last week (drop them entirely)
 function cleanStaleGoalAssignments(){
   var wg=getWeeklyGoals();
   var fri=getWeekStart();
-  var weekDays=getWeekDays(fri);
+  var lastFri=new Date(fri); lastFri.setDate(lastFri.getDate()-7);
+  var lastWeekDays=getWeekDays(lastFri);
+  var cutoff=lastWeekDays[0]; // last week's Friday
   var changed=false;
   Object.keys(wg).forEach(function(ds){
-    // Remove assignments to days before this week's Friday
-    if(ds < weekDays[0]){
+    // Remove assignments to days before LAST week's Friday
+    if(ds < cutoff){
       delete wg[ds];
       changed=true;
     }
@@ -1764,9 +1771,10 @@ function renderWeeklyPriorities(){
     h+='<div class="wp-backlog-drop" ondragover="onGoalDragOver(event)" ondragleave="onGoalDragLeave(event)" ondrop="onGoalDropBacklog(event)">';
     unassigned.forEach(function(t){
       var sec=SECS[t._sec]||{emoji:'&bull;'};
-      h+='<div class="wp-goal-chip" draggable="true" ondragstart="onGoalDragStart(\''+t.id+'\',\''+t._sec+'\')">';
+      h+='<div class="wp-goal-chip" draggable="true" ondragstart="onGoalDragStart(\''+t.id+'\',\''+t._sec+'\')" title="'+esc(t.text||'')+'">';
       h+='<span class="wp-goal-emoji">'+sec.emoji+'</span>';
-      h+='<span class="wp-goal-text" title="'+esc(t.text||'')+'">'+esc(t.text||'Untitled')+'</span>';
+      h+='<span class="wp-goal-text">'+esc(t.text||'Untitled')+'</span>';
+      h+='<button class="wp-goal-x" onclick="event.stopPropagation();deleteUnassignedGoal(\''+t.id+'\',\''+t._sec+'\')" title="Delete task">&#10005;</button>';
       h+='</div>';
     });
     h+='</div></div>';
@@ -1790,6 +1798,26 @@ function addGoalInline(secKey,dayStr){
   // Assign to the specific day
   assignGoalToDay(newId,secKey,dayStr);
   // autoSave + render already called by assignGoalToDay
+}
+
+function deleteUnassignedGoal(taskId,secKey){
+  if(!confirm('Delete this task permanently?')) return;
+  // Remove the task from whichever month it lives in
+  Object.keys(data).forEach(function(mk){
+    if(!/^\d{4}-\d{2}$/.test(mk)) return;
+    if(data[mk] && data[mk][secKey] && data[mk][secKey].tasks){
+      data[mk][secKey].tasks=data[mk][secKey].tasks.filter(function(t){return t.id!==taskId;});
+    }
+  });
+  // Remove from any weekly day assignment
+  var wg=getWeeklyGoals();
+  Object.keys(wg).forEach(function(ds){
+    wg[ds]=(wg[ds]||[]).filter(function(g){return g.id!==taskId;});
+    if(wg[ds].length===0) delete wg[ds];
+  });
+  autoSave();
+  renderDashboard();
+  showToast('🗑️ Task deleted');
 }
 
 function unstarGoal(taskId,secKey){
