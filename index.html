@@ -1431,10 +1431,23 @@ function calcSystemMonthPct(secKey){
 // ══════════════════════════════════════════════
 
 function getWeeklyGoals(){
-  var mk=curMonthKey;
-  if(!data[mk]) ensureMonth(mk);
-  if(!data[mk].__weeklyGoals__) data[mk].__weeklyGoals__={};
-  return data[mk].__weeklyGoals__;
+  // Store at top level so assignments persist across months
+  if(!data.__weeklyGoals__) data.__weeklyGoals__={};
+  // Migrate any old per-month assignments into the global store (one-time)
+  Object.keys(data).forEach(function(mk){
+    if(/^\d{4}-\d{2}$/.test(mk) && data[mk] && data[mk].__weeklyGoals__){
+      var old=data[mk].__weeklyGoals__;
+      Object.keys(old).forEach(function(ds){
+        if(!data.__weeklyGoals__[ds]) data.__weeklyGoals__[ds]=[];
+        (old[ds]||[]).forEach(function(g){
+          if(!data.__weeklyGoals__[ds].find(function(x){return x.id===g.id;}))
+            data.__weeklyGoals__[ds].push(g);
+        });
+      });
+      delete data[mk].__weeklyGoals__;
+    }
+  });
+  return data.__weeklyGoals__;
 }
 
 // Assign a starred task to a specific day
@@ -1472,10 +1485,10 @@ function getGoalsForDay(dayStr){
   var assigned=wg[dayStr]||[];
   var result=[];
   assigned.forEach(function(g){
-    var mk=curMonthKey;
-    var tasks=(data[mk]&&data[mk][g.sec]&&data[mk][g.sec].tasks)||[];
-    var t=tasks.find(function(t2){return t2.id===g.id;});
-    if(t&&t.starred) result.push(Object.assign({},t,{_sec:g.sec}));
+    var found=findStarredTaskAnyMonth(g.id,g.sec);
+    if(found && found.task.starred){
+      result.push(Object.assign({},found.task,{_sec:g.sec,_mk:found.mk}));
+    }
   });
   return result;
 }
@@ -1483,7 +1496,30 @@ function getGoalsForDay(dayStr){
 // Get starred tasks not assigned to any day yet (backlog)
 function getUnassignedGoals(){
   var all=getStarredTasks();
-  return all.filter(function(t){return !getGoalDay(t.id);});
+  var fri=getWeekStart();
+  var weekDays=getWeekDays(fri);
+  return all.filter(function(t){
+    var day=getGoalDay(t.id);
+    // Unassigned if: no day at all, OR assigned to a day outside the current week
+    if(!day) return true;
+    return weekDays.indexOf(day)===-1;
+  });
+}
+
+// Clean up goal assignments pointing to dates before the current week (stale)
+function cleanStaleGoalAssignments(){
+  var wg=getWeeklyGoals();
+  var fri=getWeekStart();
+  var weekDays=getWeekDays(fri);
+  var changed=false;
+  Object.keys(wg).forEach(function(ds){
+    // Remove assignments to days before this week's Friday
+    if(ds < weekDays[0]){
+      delete wg[ds];
+      changed=true;
+    }
+  });
+  if(changed) autoSave();
 }
 
 // Drag-and-drop support
@@ -1531,15 +1567,34 @@ function checkGoalRollover(){
 // TODAY'S PRIORITIES
 // ══════════════════════════════════════════════
 function getStarredTasks(){
-  // Read from viewKey so it works for current AND future months
-  var mk=viewKey;
+  // Scan ALL months so starred tasks from any month surface in the weekly planner.
+  // This lets you carry forward uncompleted goals from past weeks/months.
   var result=[];
-  Object.keys(SECS).forEach(function(s){
-    (data[mk]&&data[mk][s]&&data[mk][s].tasks||[]).forEach(function(t){
-      if(t.starred) result.push(Object.assign({},t,{_sec:s}));
+  var seen={};
+  Object.keys(data).forEach(function(mk){
+    if(!/^\d{4}-\d{2}$/.test(mk)) return; // only month keys
+    Object.keys(SECS).forEach(function(s){
+      ((data[mk]&&data[mk][s]&&data[mk][s].tasks)||[]).forEach(function(t){
+        if(t.starred && !seen[t.id]){
+          seen[t.id]=true;
+          result.push(Object.assign({},t,{_sec:s,_mk:mk}));
+        }
+      });
     });
   });
   return result;
+}
+
+// Find a starred task across all months by id
+function findStarredTaskAnyMonth(taskId,secKey){
+  var found=null;
+  Object.keys(data).forEach(function(mk){
+    if(!/^\d{4}-\d{2}$/.test(mk)) return;
+    var tasks=(data[mk]&&data[mk][secKey]&&data[mk][secKey].tasks)||[];
+    var t=tasks.find(function(t2){return t2.id===taskId;});
+    if(t) found={task:t,mk:mk};
+  });
+  return found;
 }
 
 function toggleStar(id){
@@ -1557,9 +1612,9 @@ function tdpToggle(el){
 }
 
 function toggleStarredCompletion(taskId,secKey){
-  var tasks=(data[viewKey]&&data[viewKey][secKey]&&data[viewKey][secKey].tasks)||[];
-  var t=tasks.find(function(t){return t.id===taskId;});
-  if(!t) return;
+  var found=findStarredTaskAnyMonth(taskId,secKey);
+  if(!found) return;
+  var t=found.task;
   t.completed=!t.completed;
   t.completedAt=t.completed?Date.now():null;
   autoSave();
@@ -1610,6 +1665,7 @@ function renderTodayPriorities(){
 
 function renderWeeklyPriorities(){
   checkGoalRollover();
+  cleanStaleGoalAssignments();
   var sys=getSystems();
   var fri=getWeekStart();
   var weekDays=getWeekDays(fri);
@@ -1737,10 +1793,17 @@ function addGoalInline(secKey,dayStr){
 }
 
 function unstarGoal(taskId,secKey){
-  var mk=viewKey;
-  var tasks=(data[mk]&&data[mk][secKey]&&data[mk][secKey].tasks)||[];
-  var t=tasks.find(function(t){return t.id===taskId;});
-  if(t){t.starred=false;autoSave();renderDashboard();}
+  var found=findStarredTaskAnyMonth(taskId,secKey);
+  if(found){
+    found.task.starred=false;
+    // Also remove from any weekly day assignment
+    var wg=getWeeklyGoals();
+    Object.keys(wg).forEach(function(ds){
+      wg[ds]=(wg[ds]||[]).filter(function(g){return g.id!==taskId;});
+      if(wg[ds].length===0) delete wg[ds];
+    });
+    autoSave();renderDashboard();
+  }
 }
 
 
@@ -2911,70 +2974,81 @@ function confirmClear() {
     });
 }
 
-// ── Firebase Firestore sync ─────────────────────────────────
+// ── Firebase RTDB sync ──────────────────────────────────────
 function startRTDBSync(uid) {
+  // Detach any existing listener first
   if (fbUnsub) {
-    // RTDB uses .off() not function call
     try { fbDb.ref('users/' + fbUid + '/dashboardx').off('value', fbUnsub); } catch(e){}
     fbUnsub = null;
   }
   setStatus('connecting');
   var ref = fbDb.ref('users/' + uid + '/dashboardx');
+  var _firstSnapshot = true; // flag: first snapshot = authoritative cloud state
 
-  // One-time read first to check if cloud has data
-  ref.once('value').then(function(snap) {
+  fbUnsub = ref.on('value', function(snap) {
     var val = snap.val();
-    if (val && val.data) {
-      // Cloud has data — use it
-      data = val.data;
-      Object.keys(data).forEach(function(k){ ensureMonth(k); });
-      lsSet(LS_KEY, JSON.stringify({version:'3.0',savedAt:new Date().toISOString(),data:data}));
-      showToast('✅ Synced ' + Object.keys(data).length + ' month(s) from cloud');
-    } else {
-      // Cloud empty — push local data up
-      var hasLocal = Object.keys(data).some(function(k){
-        return Object.keys(data[k]).some(function(s){
-          return s !== '__habits__' && (data[k][s].tasks||[]).length > 0;
+
+    if (_firstSnapshot) {
+      // ── FIRST SNAPSHOT: always trust cloud as source of truth ──
+      _firstSnapshot = false;
+      if (val && val.data) {
+        // Cloud has data — always use it, ignore localStorage
+        data = val.data;
+        Object.keys(data).forEach(function(k){ ensureMonth(k); });
+        lsSet(LS_KEY, JSON.stringify({
+          version:'3.0', savedAt:new Date().toISOString(), data:data
+        }));
+        setStatus('synced');
+        updateLastSaved(val.updatedAt||Date.now());
+        showToast('☁️ Data loaded from cloud');
+      } else {
+        // Cloud is empty — push local data up if we have any
+        var hasLocal = Object.keys(data).some(function(mk){
+          return Object.keys(data[mk]||{}).some(function(s){
+            return s!=='__habits__' && s!=='__systems__' &&
+                   s!=='__weeklyGoals__' && s!=='__goalRolloverDate__' &&
+                   ((data[mk][s]&&data[mk][s].tasks)||[]).length > 0;
+          });
         });
-      });
-      if (hasLocal) {
-        ref.set({ data: data, updatedAt: Date.now() })
-          .then(function(){ showToast('⬆️ Local data uploaded to cloud'); })
-          .catch(function(e){ showToast('⚠️ Upload failed: ' + e.message); });
+        if (hasLocal) {
+          _lastWriteTs = Date.now();
+          ref.set({ data:data, updatedAt:_lastWriteTs })
+            .then(function(){ setStatus('synced'); updateLastSaved(Date.now()); showToast('⬆️ Local data uploaded to cloud'); })
+            .catch(function(e){ setStatus('error','Upload failed'); showToast('⚠️ '+e.message); });
+        } else {
+          setStatus('synced','Cloud empty — ready');
+        }
       }
+      ensureMonth(curMonthKey);
+      render();
+      return;
     }
+
+    // ── SUBSEQUENT SNAPSHOTS: live updates from other devices ──
+    if (!val || !val.data) return;
+
+    // Suppress echo: if this update is from our own recent write, skip re-render
+    if (val.updatedAt && _lastWriteTs && Math.abs(val.updatedAt - _lastWriteTs) < 8000) {
+      setStatus('synced');
+      updateLastSaved(val.updatedAt);
+      return;
+    }
+
+    // Another device wrote — apply and re-render
+    data = val.data;
+    Object.keys(data).forEach(function(k){ ensureMonth(k); });
+    lsSet(LS_KEY, JSON.stringify({
+      version:'3.0', savedAt:new Date().toISOString(), data:data
+    }));
     ensureMonth(curMonthKey);
     render();
     setStatus('synced');
-    updateLastSaved(Date.now());
-  }).catch(function(e){
-    setStatus('error', 'Sync error');
-    showToast('⚠️ Sync error: ' + e.message);
-  });
+    updateLastSaved(val.updatedAt||Date.now());
+    showToast('☁️ Updated from another device');
 
-  // Live listener for real-time updates from other devices
-  fbUnsub = ref.on('value', function(snap) {
-    var val = snap.val();
-    if (val && val.data) {
-      // Skip re-render if this is an echo of our own write (within 5 seconds)
-      if (val.updatedAt && Math.abs(val.updatedAt - _lastWriteTs) < 5000) {
-        // Own write echo — just update status, don't re-render (prevents input focus loss)
-        setStatus('synced');
-        return;
-      }
-      // Data from another device — apply it
-      data = val.data;
-      Object.keys(data).forEach(function(k){ ensureMonth(k); });
-      lsSet(LS_KEY, JSON.stringify({version:'3.0',savedAt:new Date().toISOString(),data:data}));
-      ensureMonth(curMonthKey);
-      render();
-      setStatus('synced');
-      updateLastSaved(Date.now());
-      showToast('☁️ Updated from another device');
-    }
   }, function(e){
-    setStatus('error', 'Sync lost');
-    showToast('⚠️ ' + e.message);
+    setStatus('error','Sync error');
+    showToast('⚠️ Sync error: ' + e.message);
   });
 }
 
