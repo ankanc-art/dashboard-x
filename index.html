@@ -1127,11 +1127,16 @@ function renderMonthUI(){
 }
 
 function renderHistory(){
-  const keys=Object.keys(data).sort().reverse();
+  // Only month keys (YYYY-MM) — exclude top-level keys like __weeklyGoals__
+  const keys=Object.keys(data).filter(k=>/^\d{4}-\d{2}$/.test(k)).sort().reverse();
   const el=document.getElementById('histChips');
   if(!keys.length){el.innerHTML='<span style="font-size:9px;color:var(--ink4);font-family:JetBrains Mono,monospace">No history yet</span>';return;}
   el.innerHTML=keys.map(k=>{
-    const tot=Object.entries(data[k]).reduce((a,[s,v])=>s==='__habits__'?a+(v.categories||[]).reduce((b,cat)=>b+(cat.habits||[]).length,0):a+(v.tasks||[]).length,0);
+    const tot=Object.entries(data[k]).reduce((a,[s,v])=>{
+      if(s==='__habits__') return a+((v&&v.categories)||[]).reduce((b,cat)=>b+((cat.habits)||[]).length,0);
+      if(s.indexOf('__')===0) return a; // skip __systems__, __goalRolloverDate__ etc
+      return a+((v&&v.tasks)||[]).length;
+    },0);
     return`<div class="mchip${k===viewKey?' active':''}${tot>0?' hd':''}" onclick="jumpMonth('${k}')">${keyDisp(k)}</div>`;
   }).join('');
 }
@@ -1432,22 +1437,32 @@ function calcSystemMonthPct(secKey){
 
 function getWeeklyGoals(){
   // Store at top level so assignments persist across months
-  if(!data.__weeklyGoals__) data.__weeklyGoals__={};
+  if(!data.__weeklyGoals__ || typeof data.__weeklyGoals__!=='object' || Array.isArray(data.__weeklyGoals__)){
+    data.__weeklyGoals__={};
+  }
+  var wg=data.__weeklyGoals__;
   // Migrate any old per-month assignments into the global store (one-time)
   Object.keys(data).forEach(function(mk){
     if(/^\d{4}-\d{2}$/.test(mk) && data[mk] && data[mk].__weeklyGoals__){
       var old=data[mk].__weeklyGoals__;
-      Object.keys(old).forEach(function(ds){
-        if(!data.__weeklyGoals__[ds]) data.__weeklyGoals__[ds]=[];
-        (old[ds]||[]).forEach(function(g){
-          if(!data.__weeklyGoals__[ds].find(function(x){return x.id===g.id;}))
-            data.__weeklyGoals__[ds].push(g);
+      if(old && typeof old==='object'){
+        Object.keys(old).forEach(function(ds){
+          if(!Array.isArray(wg[ds])) wg[ds]=[];
+          var arr=Array.isArray(old[ds])?old[ds]:[];
+          arr.forEach(function(g){
+            if(g && g.id && !wg[ds].find(function(x){return x.id===g.id;}))
+              wg[ds].push(g);
+          });
         });
-      });
+      }
       delete data[mk].__weeklyGoals__;
     }
   });
-  return data.__weeklyGoals__;
+  // Sanitise: ensure every value is an array
+  Object.keys(wg).forEach(function(ds){
+    if(!Array.isArray(wg[ds])) delete wg[ds];
+  });
+  return wg;
 }
 
 // Assign a starred task to a specific day
