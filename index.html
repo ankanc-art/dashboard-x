@@ -2920,6 +2920,7 @@ let fbDb       = null;   // Firebase RTDB instance
 let fbUid      = null;   // signed-in user UID
 let fbUnsub    = null;   // RTDB listener
 let _lastWriteTs = 0;    // timestamp of last local write (suppress echo)
+let _syncReady = false;  // true once first cloud snapshot applied — blocks premature writes
 let fbReady    = false;  // true once Firebase auth resolved
 
 function setStatus(state, msg) {
@@ -2949,6 +2950,9 @@ function autoSave() {
       const payload = { version:'3.0', savedAt: new Date().toISOString(), data };
       lsSet(LS_KEY, JSON.stringify(payload));
       if (fbDb && fbUid) {
+        // Don't write to cloud until the first cloud snapshot has been applied.
+        // Prevents overwriting fresh cloud data with stale local data on login.
+        if (!_syncReady) { setStatus('connecting','Waiting for cloud…'); return; }
         _lastWriteTs = Date.now();
         fbDb.ref('users/' + fbUid + '/dashboardx')
           .set({ data: data, updatedAt: _lastWriteTs })
@@ -2973,6 +2977,7 @@ function textSave() {
       const payload = { version:'3.0', savedAt: new Date().toISOString(), data };
       lsSet(LS_KEY, JSON.stringify(payload));
       if (fbDb && fbUid) {
+        if (!_syncReady) { return; } // block premature writes
         _lastWriteTs = Date.now();
         fbDb.ref('users/' + fbUid + '/dashboardx')
           .set({ data: data, updatedAt: _lastWriteTs })
@@ -3025,6 +3030,7 @@ function startRTDBSync(uid) {
     fbUnsub = null;
   }
   setStatus('connecting');
+  _syncReady = false; // block writes until first cloud snapshot applied
   var ref = fbDb.ref('users/' + uid + '/dashboardx');
   var _firstSnapshot = true; // flag: first snapshot = authoritative cloud state
 
@@ -3044,6 +3050,7 @@ function startRTDBSync(uid) {
         setStatus('synced');
         updateLastSaved(val.updatedAt||Date.now());
         showToast('☁️ Data loaded from cloud');
+        _syncReady = true; // now safe to accept local writes
       } else {
         // Cloud is empty — push local data up if we have any
         var hasLocal = Object.keys(data).some(function(mk){
@@ -3062,6 +3069,7 @@ function startRTDBSync(uid) {
           setStatus('synced','Cloud empty — ready');
         }
       }
+      _syncReady = true; // first snapshot processed — writes now allowed
       ensureMonth(curMonthKey);
       render();
       return;
