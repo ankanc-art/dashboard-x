@@ -620,6 +620,116 @@ td.today-col{background:rgba(232,98,74,.03);}
 .hw-bar-val{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;}
 
 
+
+/* ─── LONG-TERM GOALS ─── */
+.ltg-wrap{padding:0;}
+.ltg-add-bar{display:flex;gap:8px;padding:12px 0;flex-wrap:wrap;}
+.ltg-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);
+  margin-bottom:16px;overflow:hidden;box-shadow:0 2px 12px rgba(30,26,20,.06);}
+.ltg-card-hd{padding:12px 16px;display:flex;align-items:flex-start;gap:12px;
+  border-bottom:1px solid var(--border);}
+.ltg-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:20px;flex-shrink:0;}
+.ltg-type-numeric .ltg-icon{background:var(--sky-l);}
+.ltg-type-milestone .ltg-icon{background:var(--mauve-l);}
+.ltg-type-streak .ltg-icon{background:var(--coral-l);}
+.ltg-hd-body{flex:1;min-width:0;}
+.ltg-name{font-family:'Fraunces',serif;font-size:17px;font-weight:800;color:var(--ink);
+  letter-spacing:-.3px;line-height:1.2;}
+.ltg-name-input{font-family:'Fraunces',serif;font-size:17px;font-weight:800;color:var(--ink);
+  border:none;background:transparent;outline:none;width:100%;border-bottom:1px dashed transparent;}
+.ltg-name-input:focus{border-bottom-color:var(--sky);}
+.ltg-meta{display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;}
+.ltg-badge{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;
+  padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.3px;}
+.ltg-badge-numeric{background:var(--sky-l);color:var(--sky);border:1px solid var(--sky-b);}
+.ltg-badge-milestone{background:var(--mauve-l);color:var(--mauve);border:1px solid var(--mauve-b);}
+.ltg-badge-streak{background:var(--coral-l);color:var(--coral);border:1px solid var(--coral-b);}
+.ltg-deadline{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink3);}
+.ltg-pace{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;}
+.ltg-pace-ahead{background:var(--sage-l);color:var(--sage);}
+.ltg-pace-ontrack{background:var(--sky-l);color:var(--sky);}
+.ltg-pace-behind{background:var(--amber-l);color:var(--amber);}
+.ltg-pace-risk{background:var(--red-l);color:var(--red);}
+.ltg-del{width:24px;height:24px;border:none;background:transparent;color:var(--ink4);
+  font-size:14px;cursor:pointer;border-radius:6px;flex-shrink:0;}
+.ltg-del:hover{background:var(--red-l);color:var(--red);}
+/* Progress section */
+.ltg-prog{padding:14px 16px;}
+.ltg-prog-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;gap:10px;}
+.ltg-prog-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:800;color:var(--ink);}
+.ltg-prog-val small{font-size:13px;color:var(--ink3);font-weight:600;}
+.ltg-prog-target{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink3);}
+.ltg-prog-pct{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:800;}
+.ltg-bar{height:12px;background:var(--bg2);border-radius:6px;overflow:hidden;position:relative;}
+.ltg-bar-fill{height:100%;border-radius:6px;transition:width .5s ease;}
+.ltg-bar-pace{position:absolute;top:0;bottom:0;width:2px;background:var(--ink2);opacity:.5;}
+.ltg-bar-pace::after{content:'';position:absolute;top:-3px;left:-3px;width:8px;height:8px;
+  background:var(--ink2);border-radius:50%;}
+/* Quick update */
+.ltg-update{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.ltg-update-input{width:90px;padding:7px 10px;border:1.5px solid var(--border2);border-radius:8px;
+  font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--ink);
+  outline:none;text-align:center;}
+.ltg-update-input:focus{border-color:var(--sky);}
+.ltg-update-btn{padding:7px 14px;background:var(--sky);color:#fff;border:none;border-radius:8px;
+  font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
+.ltg-update-btn:hover{filter:brightness(1.05);}
+/* Trend mini chart */
+.ltg-trend{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+.ltg-trend-hd{font-size:10px;font-weight:700;color:var(--ink3);font-family:'JetBrains Mono',monospace;
+  margin-bottom:8px;display:flex;justify-content:space-between;}
+.ltg-trend-svg{width:100%;height:60px;display:block;}
+.ltg-trend-empty{font-size:11px;color:var(--ink4);font-style:italic;text-align:center;padding:8px;}
+/* Milestones */
+.ltg-ms-list{padding:4px 16px 14px;}
+.ltg-ms{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+.ltg-ms:last-child{border-bottom:none;}
+.ltg-ms-cb{width:22px;height:22px;border-radius:7px;border:2px solid var(--mauve-b);background:#fff;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;}
+.ltg-ms-cb:hover{border-color:var(--mauve);background:var(--mauve-l);}
+.ltg-ms-cb.done{background:var(--mauve);border-color:var(--mauve);}
+.ltg-ms-cbx{display:none;color:#fff;font-size:12px;font-weight:800;}
+.ltg-ms-cb.done .ltg-ms-cbx{display:block;}
+.ltg-ms-text{flex:1;font-size:13px;font-weight:500;color:var(--ink);border:none;background:transparent;outline:none;}
+.ltg-ms.done .ltg-ms-text{text-decoration:line-through;color:var(--ink3);}
+.ltg-ms-date{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink4);flex-shrink:0;}
+.ltg-ms-del{width:18px;height:18px;border:none;background:transparent;color:var(--ink4);
+  font-size:11px;cursor:pointer;flex-shrink:0;}
+.ltg-ms-del:hover{color:var(--red);}
+.ltg-ms-add{font-size:11px;font-weight:700;color:var(--mauve);background:var(--mauve-l);
+  border:1px dashed var(--mauve-b);border-radius:6px;padding:5px 12px;cursor:pointer;margin-top:8px;
+  font-family:'JetBrains Mono',monospace;}
+.ltg-ms-add:hover{background:var(--mauve);color:#fff;}
+/* Streak weekly */
+.ltg-streak-grid{display:flex;gap:6px;flex-wrap:wrap;padding:4px 0;}
+.ltg-streak-wk{flex:1;min-width:60px;text-align:center;padding:8px 4px;border-radius:8px;
+  background:var(--bg2);border:1px solid var(--border);}
+.ltg-streak-wk-label{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--ink3);font-weight:600;}
+.ltg-streak-wk-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:800;margin-top:2px;}
+.ltg-streak-wk.hit{background:var(--sage-l);border-color:var(--sage-b);}
+.ltg-streak-wk.hit .ltg-streak-wk-val{color:var(--sage);}
+.ltg-streak-wk.miss .ltg-streak-wk-val{color:var(--ink4);}
+.ltg-streak-controls{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.ltg-streak-this{font-size:12px;color:var(--ink2);font-weight:600;}
+.ltg-log-btn{padding:6px 12px;background:var(--coral);color:#fff;border:none;border-radius:8px;
+  font-size:12px;font-weight:700;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;}
+/* Dashboard goal card */
+.ltg-dash{background:var(--surface);border:2px solid var(--sky-b);border-radius:var(--r);
+  overflow:hidden;box-shadow:0 4px 20px rgba(74,144,184,.1);margin-bottom:20px;}
+.ltg-dash-hd{padding:12px 18px;background:linear-gradient(135deg,var(--sky-l),#eef6fb);
+  border-bottom:1.5px solid var(--sky-b);display:flex;align-items:center;justify-content:space-between;}
+.ltg-dash-title{font-family:'Fraunces',serif;font-size:16px;font-weight:800;color:var(--sky);}
+.ltg-dash-row{display:flex;align-items:center;gap:10px;padding:9px 18px;border-bottom:1px solid var(--border);cursor:pointer;}
+.ltg-dash-row:last-child{border-bottom:none;}
+.ltg-dash-row:hover{background:var(--sky-l);}
+.ltg-dash-ico{font-size:15px;flex-shrink:0;}
+.ltg-dash-name{flex:1;font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ltg-dash-bar{width:90px;height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;flex-shrink:0;}
+.ltg-dash-fill{height:100%;border-radius:3px;}
+.ltg-dash-pct{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;min-width:34px;text-align:right;}
+.ltg-dash-empty{padding:18px;text-align:center;font-size:13px;color:var(--ink3);font-style:italic;}
+
 /* ─── MODAL ─── */
 .modal-ov{position:fixed;inset:0;background:rgba(30,26,20,.3);backdrop-filter:blur(6px);
   z-index:9000;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease;}
@@ -707,6 +817,9 @@ td.today-col{background:rgba(232,98,74,.03);}
     </div>
     <div class="nav-item habit-item" data-section="__habits__" onclick="switchSection('__habits__',this)">
       <span class="nav-emoji">🔥</span><span class="nav-txt">Habit Tracker</span><span class="nav-badge" id="badge-__habits__">0</span>
+    </div>
+    <div class="nav-item" data-section="__goals__" onclick="switchSection('__goals__',this)" style="border-left:3px solid var(--sky)">
+      <span class="nav-emoji">🏁</span><span class="nav-txt">Long-Term Goals</span><span class="nav-badge" id="badge-__goals__">0</span>
     </div>
 
     <div class="nav-grp" style="margin-top:10px">Wellness</div>
@@ -1115,6 +1228,7 @@ function render(){
   renderBanner();
   if(curSec==='__dashboard__') renderDashboard();
   else if(curSec==='__habits__') renderHabits();
+  else if(curSec==='__goals__') renderGoals();
   else if(curSec==='allin') renderAISection();
   else renderSection();
   updateBadges();
@@ -2218,6 +2332,428 @@ function updateAIPct(id,val){
   autoSave(); renderAISection();
 }
 
+
+// ══════════════════════════════════════════════
+// LONG-TERM GOALS
+// ══════════════════════════════════════════════
+// Goal schema:
+// { id, name, type:'numeric'|'milestone'|'streak', icon,
+//   createdAt, deadline,  (ISO date)
+//   // numeric:
+//   startVal, targetVal, curVal, unit, direction:'down'|'up',
+//   log:[{date,val}],
+//   // milestone:
+//   milestones:[{id,text,done,doneAt}],
+//   // streak:
+//   perWeek, weekLog:{ 'YYYY-MM-DD(weekFri)': count } }
+
+function getLTG(){
+  if(!Array.isArray(data.__longTermGoals__)) data.__longTermGoals__=[];
+  return data.__longTermGoals__;
+}
+
+function ltgUid(){ return 'ltg'+Date.now().toString(36)+Math.random().toString(36).slice(2); }
+
+function addLTG(type){
+  var goals=getLTG();
+  var base={
+    id:ltgUid(), type:type, name:'', createdAt:Date.now(),
+    deadline:'', icon:type==='numeric'?'📉':type==='milestone'?'🎯':'🔥'
+  };
+  if(type==='numeric'){
+    base.startVal=0; base.targetVal=0; base.curVal=0; base.unit='kg'; base.direction='down'; base.log=[];
+  } else if(type==='milestone'){
+    base.milestones=[];
+  } else if(type==='streak'){
+    base.perWeek=3; base.weekLog={};
+  }
+  goals.push(base);
+  autoSave();
+  renderGoals();
+  setTimeout(function(){
+    var ins=document.querySelectorAll('.ltg-name-input');
+    if(ins.length) ins[ins.length-1].focus();
+  },50);
+}
+
+function deleteLTG(id){
+  if(!confirm('Delete this goal permanently?')) return;
+  data.__longTermGoals__=getLTG().filter(function(g){return g.id!==id;});
+  autoSave(); renderGoals();
+}
+
+function findLTG(id){ return getLTG().find(function(g){return g.id===id;}); }
+
+function updateLTGField(id,field,val){
+  var g=findLTG(id); if(!g) return;
+  if(['startVal','targetVal','curVal','perWeek'].indexOf(field)!==-1) val=parseFloat(val)||0;
+  g[field]=val;
+  textSave();
+}
+
+function updateLTGNameRender(id,val){
+  var g=findLTG(id); if(g){g.name=val;textSave();}
+}
+
+// ── Numeric goal ──
+function logNumericValue(id){
+  var g=findLTG(id); if(!g) return;
+  var inp=document.getElementById('ltg-newval-'+id);
+  if(!inp) return;
+  var v=parseFloat(inp.value);
+  if(isNaN(v)){ showToast('⚠️ Enter a number'); return; }
+  g.curVal=v;
+  if(!g.log) g.log=[];
+  g.log.push({date:todayStr(),val:v});
+  // Keep only most recent entry per date
+  var byDate={};
+  g.log.forEach(function(e){ byDate[e.date]=e; });
+  g.log=Object.keys(byDate).sort().map(function(d){return byDate[d];});
+  autoSave(); renderGoals();
+  showToast('✅ Progress logged');
+}
+
+function calcNumericPct(g){
+  if(g.direction==='down'){
+    var total=g.startVal-g.targetVal;
+    if(total<=0) return 0;
+    var done=g.startVal-g.curVal;
+    return Math.max(0,Math.min(100,Math.round(done/total*100)));
+  } else {
+    var total2=g.targetVal-g.startVal;
+    if(total2<=0) return 0;
+    var done2=g.curVal-g.startVal;
+    return Math.max(0,Math.min(100,Math.round(done2/total2*100)));
+  }
+}
+
+// ── Pace calculation: where SHOULD you be by now (time-based) ──
+function calcPacePct(g){
+  if(!g.deadline) return null;
+  var start=g.createdAt||Date.now();
+  var end=new Date(g.deadline+'T23:59:59').getTime();
+  var now=Date.now();
+  if(end<=start) return null;
+  var elapsed=now-start;
+  var total=end-start;
+  return Math.max(0,Math.min(100,Math.round(elapsed/total*100)));
+}
+
+function getPaceStatus(actualPct,pacePct){
+  if(pacePct===null) return null;
+  var diff=actualPct-pacePct;
+  if(diff>=10) return {cls:'ltg-pace-ahead',label:'Ahead'};
+  if(diff>=-5) return {cls:'ltg-pace-ontrack',label:'On track'};
+  if(diff>=-20) return {cls:'ltg-pace-behind',label:'Behind'};
+  return {cls:'ltg-pace-risk',label:'At risk'};
+}
+
+function daysLeft(deadline){
+  if(!deadline) return null;
+  var end=new Date(deadline+'T23:59:59').getTime();
+  var now=Date.now();
+  return Math.ceil((end-now)/(1000*60*60*24));
+}
+
+// ── Milestone goal ──
+function calcMilestonePct(g){
+  var ms=g.milestones||[];
+  if(ms.length===0) return 0;
+  var done=ms.filter(function(m){return m.done;}).length;
+  return Math.round(done/ms.length*100);
+}
+
+function addMilestone(id){
+  var g=findLTG(id); if(!g) return;
+  if(!g.milestones) g.milestones=[];
+  g.milestones.push({id:ltgUid(),text:'',done:false,doneAt:null});
+  autoSave(); renderGoals();
+  setTimeout(function(){
+    var ins=document.querySelectorAll('.ltg-ms-text');
+    if(ins.length) ins[ins.length-1].focus();
+  },50);
+}
+
+function updateMilestoneText(gid,mid,val){
+  var g=findLTG(gid); if(!g) return;
+  var m=(g.milestones||[]).find(function(x){return x.id===mid;});
+  if(m){m.text=val;textSave();}
+}
+
+function toggleMilestone(gid,mid){
+  var g=findLTG(gid); if(!g) return;
+  var m=(g.milestones||[]).find(function(x){return x.id===mid;});
+  if(m){m.done=!m.done;m.doneAt=m.done?Date.now():null;autoSave();renderGoals();}
+}
+
+function deleteMilestone(gid,mid){
+  var g=findLTG(gid); if(!g) return;
+  g.milestones=(g.milestones||[]).filter(function(x){return x.id!==mid;});
+  autoSave(); renderGoals();
+}
+
+// ── Streak goal (X sessions per week) ──
+function logStreakSession(id){
+  var g=findLTG(id); if(!g) return;
+  var wkKey=fmtDate(getWeekStart());
+  if(!g.weekLog) g.weekLog={};
+  g.weekLog[wkKey]=(g.weekLog[wkKey]||0)+1;
+  autoSave(); renderGoals();
+  showToast('✅ Session logged');
+}
+
+function unlogStreakSession(id){
+  var g=findLTG(id); if(!g) return;
+  var wkKey=fmtDate(getWeekStart());
+  if(g.weekLog && g.weekLog[wkKey]>0){
+    g.weekLog[wkKey]--;
+    if(g.weekLog[wkKey]===0) delete g.weekLog[wkKey];
+    autoSave(); renderGoals();
+  }
+}
+
+function fmtDate(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function calcStreakPct(g){
+  // % of weeks (since creation) where target was hit
+  if(!g.deadline) {
+    // No deadline — base on this week only
+    var wkKey=fmtDate(getWeekStart());
+    var cnt=(g.weekLog&&g.weekLog[wkKey])||0;
+    return Math.min(100,Math.round(cnt/(g.perWeek||1)*100));
+  }
+  var weeks=getStreakWeeks(g);
+  if(weeks.length===0) return 0;
+  var hit=weeks.filter(function(w){return w.count>=g.perWeek;}).length;
+  return Math.round(hit/weeks.length*100);
+}
+
+function getStreakWeeks(g){
+  // All weeks from creation to deadline
+  var weeks=[];
+  var start=getWeekStart(new Date(g.createdAt));
+  var end=g.deadline?new Date(g.deadline):new Date();
+  var cur=new Date(start);
+  var safety=0;
+  while(cur<=end && safety<104){
+    var wkKey=fmtDate(cur);
+    weeks.push({key:wkKey, start:new Date(cur), count:(g.weekLog&&g.weekLog[wkKey])||0});
+    cur.setDate(cur.getDate()+7);
+    safety++;
+  }
+  return weeks;
+}
+
+// ══════════════════════════════════════════════
+// RENDER GOALS TAB
+// ══════════════════════════════════════════════
+function renderGoals(){
+  var goals=getLTG();
+  document.getElementById('tbIco').textContent='🏁';
+  document.getElementById('tbTitle').textContent='Long-Term Goals';
+  document.getElementById('tbSub').textContent='Track big goals over weeks & months';
+  document.getElementById('progPill').style.display='none';
+
+  var h='<div class="ltg-wrap">';
+  h+='<div class="sec-hd"><div>';
+  h+='<div class="sec-title">🏁 Long-Term Goals</div>';
+  h+='<div class="sec-desc">Break big goals into measurable progress over time.</div>';
+  h+='</div></div>';
+
+  // Add buttons
+  h+='<div class="ltg-add-bar">';
+  h+='<button class="add-btn" style="background:var(--sky)" onclick="addLTG(\'numeric\')">＋ Numeric Goal</button>';
+  h+='<button class="add-btn" style="background:var(--mauve)" onclick="addLTG(\'milestone\')">＋ Milestone Goal</button>';
+  h+='<button class="add-btn" style="background:var(--coral)" onclick="addLTG(\'streak\')">＋ Streak Goal</button>';
+  h+='</div>';
+
+  if(goals.length===0){
+    h+='<div class="empty"><span class="empty-ico">🏁</span>';
+    h+='<div class="empty-t">No long-term goals yet</div>';
+    h+='<div class="empty-h">Add a numeric goal (lose 30kg), milestone goal (pass PMP), or streak goal (run 3x/week)</div></div>';
+  } else {
+    goals.forEach(function(g){ h+=renderLTGCard(g); });
+  }
+
+  h+='</div>';
+  document.getElementById('mainContent').innerHTML=h;
+}
+
+function renderLTGCard(g){
+  var h='<div class="ltg-card ltg-type-'+g.type+'">';
+
+  // Header
+  h+='<div class="ltg-card-hd">';
+  h+='<div class="ltg-icon">'+(g.icon||'🎯')+'</div>';
+  h+='<div class="ltg-hd-body">';
+  h+='<input class="ltg-name-input" value="'+esc(g.name||'')+'" placeholder="Goal name…" oninput="updateLTGNameRender(\''+g.id+'\',this.value)"/>';
+  h+='<div class="ltg-meta">';
+  var typeLabel={numeric:'Numeric',milestone:'Milestone',streak:'Streak'};
+  h+='<span class="ltg-badge ltg-badge-'+g.type+'">'+typeLabel[g.type]+'</span>';
+  // Deadline
+  h+='<span class="ltg-deadline">🎯 <input type="date" value="'+(g.deadline||'')+'" onchange="updateLTGField(\''+g.id+'\',\'deadline\',this.value)" style="border:none;background:transparent;font-family:JetBrains Mono,monospace;font-size:10px;color:var(--ink3)"/></span>';
+  var dl=daysLeft(g.deadline);
+  if(dl!==null){
+    var dlCol=dl<0?'var(--red)':dl<14?'var(--amber)':'var(--ink3)';
+    h+='<span class="ltg-deadline" style="color:'+dlCol+';font-weight:700">'+(dl<0?Math.abs(dl)+'d overdue':dl+'d left')+'</span>';
+  }
+  // Pace
+  var actualPct=g.type==='numeric'?calcNumericPct(g):g.type==='milestone'?calcMilestonePct(g):calcStreakPct(g);
+  var pacePct=calcPacePct(g);
+  var pace=getPaceStatus(actualPct,pacePct);
+  if(pace) h+='<span class="ltg-pace '+pace.cls+'">'+pace.label+'</span>';
+  h+='</div></div>';
+  h+='<button class="ltg-del" onclick="deleteLTG(\''+g.id+'\')">🗑</button>';
+  h+='</div>';
+
+  // Body by type
+  if(g.type==='numeric') h+=renderNumericBody(g,actualPct,pacePct);
+  else if(g.type==='milestone') h+=renderMilestoneBody(g,actualPct);
+  else if(g.type==='streak') h+=renderStreakBody(g,actualPct);
+
+  h+='</div>';
+  return h;
+}
+
+function renderNumericBody(g,pct,pacePct){
+  var h='<div class="ltg-prog">';
+  h+='<div class="ltg-prog-top">';
+  h+='<div><span class="ltg-prog-val">'+g.curVal+'<small> '+esc(g.unit||'')+'</small></span>';
+  h+=' <span class="ltg-prog-target">/ '+g.targetVal+' '+esc(g.unit||'')+' target</span></div>';
+  var pctCol=pct>=80?'var(--sage)':pct>=40?'var(--sky)':'var(--amber)';
+  h+='<span class="ltg-prog-pct" style="color:'+pctCol+'">'+pct+'%</span>';
+  h+='</div>';
+  // Progress bar with pace marker
+  h+='<div class="ltg-bar">';
+  h+='<div class="ltg-bar-fill" style="width:'+pct+'%;background:'+pctCol+'"></div>';
+  if(pacePct!==null) h+='<div class="ltg-bar-pace" style="left:'+pacePct+'%" title="Pace: should be '+pacePct+'%"></div>';
+  h+='</div>';
+
+  // Config row (start/target/unit/direction)
+  h+='<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">';
+  h+='<span style="font-size:10px;color:var(--ink3)">Start</span>';
+  h+='<input class="ltg-update-input" style="width:60px" value="'+g.startVal+'" onchange="updateLTGField(\''+g.id+'\',\'startVal\',this.value)"/>';
+  h+='<span style="font-size:10px;color:var(--ink3)">Target</span>';
+  h+='<input class="ltg-update-input" style="width:60px" value="'+g.targetVal+'" onchange="updateLTGField(\''+g.id+'\',\'targetVal\',this.value)"/>';
+  h+='<span style="font-size:10px;color:var(--ink3)">Unit</span>';
+  h+='<input class="ltg-update-input" style="width:50px" value="'+esc(g.unit||'')+'" onchange="updateLTGField(\''+g.id+'\',\'unit\',this.value)"/>';
+  h+='<select onchange="updateLTGField(\''+g.id+'\',\'direction\',this.value)" style="padding:6px;border:1.5px solid var(--border2);border-radius:8px;font-size:11px">';
+  h+='<option value="down"'+(g.direction==='down'?' selected':'')+'>Decrease ↓</option>';
+  h+='<option value="up"'+(g.direction==='up'?' selected':'')+'>Increase ↑</option>';
+  h+='</select>';
+  h+='</div>';
+
+  // Quick update
+  h+='<div class="ltg-update">';
+  h+='<span style="font-size:11px;color:var(--ink2);font-weight:600">Log current:</span>';
+  h+='<input id="ltg-newval-'+g.id+'" class="ltg-update-input" placeholder="'+g.curVal+'" type="number" step="any"/>';
+  h+='<button class="ltg-update-btn" onclick="logNumericValue(\''+g.id+'\')">Update</button>';
+  h+='</div>';
+
+  // Trend chart
+  h+=renderTrendChart(g);
+
+  h+='</div>';
+  return h;
+}
+
+function renderTrendChart(g){
+  var log=g.log||[];
+  if(log.length<2){
+    return '<div class="ltg-trend"><div class="ltg-trend-empty">Log at least 2 values to see your trend</div></div>';
+  }
+  var w=300,ht=60,pad=4;
+  var vals=log.map(function(e){return e.val;});
+  var allVals=vals.concat([g.startVal,g.targetVal]);
+  var min=Math.min.apply(null,allVals);
+  var max=Math.max.apply(null,allVals);
+  var range=max-min||1;
+  var pts=log.map(function(e,i){
+    var x=pad+(i/(log.length-1))*(w-2*pad);
+    var y=ht-pad-((e.val-min)/range)*(ht-2*pad);
+    return x+','+y;
+  });
+  // Target line
+  var ty=ht-pad-((g.targetVal-min)/range)*(ht-2*pad);
+  var h='<div class="ltg-trend">';
+  h+='<div class="ltg-trend-hd"><span>Trend ('+log.length+' entries)</span><span>'+log[0].val+' → '+log[log.length-1].val+' '+esc(g.unit||'')+'</span></div>';
+  h+='<svg class="ltg-trend-svg" viewBox="0 0 '+w+' '+ht+'" preserveAspectRatio="none">';
+  h+='<line x1="0" y1="'+ty+'" x2="'+w+'" y2="'+ty+'" stroke="var(--sage)" stroke-width="1" stroke-dasharray="4 3" opacity="0.6"/>';
+  h+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--sky)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  log.forEach(function(e,i){
+    var coords=pts[i].split(',');
+    h+='<circle cx="'+coords[0]+'" cy="'+coords[1]+'" r="2.5" fill="var(--sky)"/>';
+  });
+  h+='</svg></div>';
+  return h;
+}
+
+function renderMilestoneBody(g,pct){
+  var ms=g.milestones||[];
+  var done=ms.filter(function(m){return m.done;}).length;
+  var h='<div class="ltg-prog">';
+  h+='<div class="ltg-prog-top">';
+  h+='<div><span class="ltg-prog-val">'+done+'<small> / '+ms.length+' done</small></span></div>';
+  var pctCol=pct>=80?'var(--sage)':pct>=40?'var(--mauve)':'var(--amber)';
+  h+='<span class="ltg-prog-pct" style="color:'+pctCol+'">'+pct+'%</span>';
+  h+='</div>';
+  h+='<div class="ltg-bar"><div class="ltg-bar-fill" style="width:'+pct+'%;background:'+pctCol+'"></div></div>';
+  h+='</div>';
+  // Milestones list
+  h+='<div class="ltg-ms-list">';
+  ms.forEach(function(m){
+    h+='<div class="ltg-ms'+(m.done?' done':'')+'">';
+    h+='<div class="ltg-ms-cb'+(m.done?' done':'')+'" onclick="toggleMilestone(\''+g.id+'\',\''+m.id+'\')"><span class="ltg-ms-cbx">✓</span></div>';
+    h+='<input class="ltg-ms-text" value="'+esc(m.text||'')+'" placeholder="Milestone…" oninput="updateMilestoneText(\''+g.id+'\',\''+m.id+'\',this.value)"/>';
+    if(m.done&&m.doneAt) h+='<span class="ltg-ms-date">'+fmtTs(m.doneAt)+'</span>';
+    h+='<button class="ltg-ms-del" onclick="deleteMilestone(\''+g.id+'\',\''+m.id+'\')">✕</button>';
+    h+='</div>';
+  });
+  h+='<button class="ltg-ms-add" onclick="addMilestone(\''+g.id+'\')">＋ Add Milestone</button>';
+  h+='</div>';
+  return h;
+}
+
+function renderStreakBody(g,pct){
+  var wkKey=fmtDate(getWeekStart());
+  var thisWeek=(g.weekLog&&g.weekLog[wkKey])||0;
+  var h='<div class="ltg-prog">';
+  h+='<div class="ltg-prog-top">';
+  h+='<div><span class="ltg-prog-val">'+thisWeek+'<small> / '+g.perWeek+' this week</small></span></div>';
+  var pctCol=pct>=80?'var(--sage)':pct>=40?'var(--coral)':'var(--amber)';
+  h+='<span class="ltg-prog-pct" style="color:'+pctCol+'">'+pct+'%</span>';
+  h+='</div>';
+  // Target config
+  h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">';
+  h+='<span style="font-size:10px;color:var(--ink3)">Target per week</span>';
+  h+='<input class="ltg-update-input" style="width:50px" value="'+g.perWeek+'" onchange="updateLTGField(\''+g.id+'\',\'perWeek\',this.value)"/>';
+  h+='</div>';
+  // This week controls
+  h+='<div class="ltg-streak-controls">';
+  h+='<button class="ltg-log-btn" onclick="logStreakSession(\''+g.id+'\')">＋ Log session</button>';
+  if(thisWeek>0) h+='<button class="ltg-log-btn" style="background:var(--ink3)" onclick="unlogStreakSession(\''+g.id+'\')">－ Undo</button>';
+  h+='<span class="ltg-streak-this">'+thisWeek+' / '+g.perWeek+' done this week</span>';
+  h+='</div>';
+  // Weekly history grid
+  var weeks=getStreakWeeks(g);
+  if(weeks.length>0){
+    h+='<div style="margin-top:12px"><div class="ltg-trend-hd"><span>Weekly History</span><span>'+weeks.filter(function(w){return w.count>=g.perWeek;}).length+'/'+weeks.length+' weeks hit</span></div>';
+    h+='<div class="ltg-streak-grid">';
+    weeks.slice(-8).forEach(function(w,i){
+      var hit=w.count>=g.perWeek;
+      h+='<div class="ltg-streak-wk '+(hit?'hit':'miss')+'">';
+      h+='<div class="ltg-streak-wk-label">'+formatDayShort(w.key)+'</div>';
+      h+='<div class="ltg-streak-wk-val">'+w.count+'</div>';
+      h+='</div>';
+    });
+    h+='</div></div>';
+  }
+  h+='</div>';
+  return h;
+}
+
 // ══════════════════════════════════════════════
 // HABIT TRACKER
 // ══════════════════════════════════════════════
@@ -2500,6 +3036,32 @@ function renderDashboard(){
       <div class="ss-lbl">Overdue</div>
     </div>
   </div>`;
+
+  // ── Long-Term Goals card ──
+  (function(){
+    var goals=getLTG();
+    if(goals.length>0){
+      html+='<div class="ltg-dash">';
+      html+='<div class="ltg-dash-hd"><div class="ltg-dash-title">🏁 Long-Term Goals</div>';
+      html+='<button class="subhd-btn" onclick="goToGoals()" style="color:var(--sky);border-color:var(--sky-b);background:var(--sky-l);font-size:10px">Open &#8594;</button></div>';
+      goals.forEach(function(g){
+        var pct=g.type==='numeric'?calcNumericPct(g):g.type==='milestone'?calcMilestonePct(g):calcStreakPct(g);
+        var pacePct=calcPacePct(g);
+        var pace=getPaceStatus(pct,pacePct);
+        var pctCol=pct>=80?'var(--sage)':pct>=40?'var(--sky)':'var(--amber)';
+        var dl=daysLeft(g.deadline);
+        html+='<div class="ltg-dash-row" onclick="goToGoals()">';
+        html+='<span class="ltg-dash-ico">'+(g.icon||'🎯')+'</span>';
+        html+='<span class="ltg-dash-name">'+(esc(g.name)||'<em style="opacity:.4">Unnamed goal</em>')+'</span>';
+        if(dl!==null){var dc=dl<0?'var(--red)':dl<14?'var(--amber)':'var(--ink4)';html+='<span style="font-family:JetBrains Mono,monospace;font-size:9px;color:'+dc+'">'+(dl<0?Math.abs(dl)+'d over':dl+'d')+'</span>';}
+        if(pace) html+='<span class="ltg-pace '+pace.cls+'" style="font-size:8px;padding:1px 6px">'+pace.label+'</span>';
+        html+='<div class="ltg-dash-bar"><div class="ltg-dash-fill" style="width:'+pct+'%;background:'+pctCol+'"></div></div>';
+        html+='<span class="ltg-dash-pct" style="color:'+pctCol+'">'+pct+'%</span>';
+        html+='</div>';
+      });
+      html+='</div>';
+    }
+  })();
 
   // ── Habit Tracker summary ──
   (function(){
@@ -2876,6 +3438,11 @@ function updateBadges(){
     dbEl.className='nav-badge'+(odCount>0?' has-overdue':'');
   }
 // All In badge
+  const lgEl=document.getElementById('badge-__goals__');
+  if(lgEl){
+    const lg=getLTG();
+    lgEl.textContent=lg.length>0?String(lg.length):'0';
+  }
   const aiEl=document.getElementById('badge-allin');
   if(aiEl){
     const aiTasks=(data[viewKey]?.allin?.tasks||[]);
@@ -2900,6 +3467,10 @@ function goToAllin(){
 function goToHabits(){
   var el=document.querySelector('[data-section="__habits__"]');
   if(el) switchSection('__habits__',el);
+}
+function goToGoals(){
+  var el=document.querySelector('[data-section="__goals__"]');
+  if(el) switchSection('__goals__',el);
 }
 function switchSection(key,el){
   curSec=key;
