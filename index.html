@@ -1409,23 +1409,52 @@ function renderTask(t,subheads,isOld){
 // WEEKLY UTILITIES (Fri-Thu week)
 // ══════════════════════════════════════════════
 
-var DAYS_SHORT=['Fri','Sat','Sun','Mon','Tue','Wed','Thu'];
-var DAYS_FULL=['Friday','Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday'];
+var DAY_NAMES_FULL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var DAY_NAMES_SHORT=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// Configurable week-start day (0=Sun..6=Sat). Default Monday=1.
+function getWeekStartDay(){
+  var v=data.__weekStartDay__;
+  return (typeof v==='number' && v>=0 && v<=6) ? v : 1; // default Monday
+}
+function setWeekStartDay(day){
+  data.__weekStartDay__=parseInt(day);
+  autoSave();
+  render();
+}
+
+// DAYS_SHORT / DAYS_FULL derived from the configured start day
+function getDaysShort(){
+  var start=getWeekStartDay();
+  var arr=[];
+  for(var i=0;i<7;i++) arr.push(DAY_NAMES_SHORT[(start+i)%7]);
+  return arr;
+}
+function getDaysFull(){
+  var start=getWeekStartDay();
+  var arr=[];
+  for(var i=0;i<7;i++) arr.push(DAY_NAMES_FULL[(start+i)%7]);
+  return arr;
+}
+// Legacy globals kept in sync (some code references DAYS_SHORT directly)
+var DAYS_SHORT=getDaysShort();
+var DAYS_FULL=getDaysFull();
 
 function todayStr(){
   var d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
-// Get the Friday that starts the current week (Fri-Thu)
+// Get the start day of the week containing d, based on configured start day
 function getWeekStart(d){
   d=d?new Date(d):new Date();
-  var day=d.getDay(); // 0=Sun,1=Mon,...5=Fri,6=Sat
-  var diff=(day>=5)?(day-5):(day+2); // days since Friday
-  var fri=new Date(d);
-  fri.setDate(fri.getDate()-diff);
-  fri.setHours(0,0,0,0);
-  return fri;
+  var startDay=getWeekStartDay();
+  var day=d.getDay(); // 0=Sun..6=Sat
+  var diff=(day-startDay+7)%7; // days since the configured start day
+  var ws=new Date(d);
+  ws.setDate(ws.getDate()-diff);
+  ws.setHours(0,0,0,0);
+  return ws;
 }
 
 // Get array of 7 date strings for a Fri-Thu week starting from given Friday
@@ -1824,6 +1853,14 @@ function renderWeeklyPriorities(){
   h+='<div class="wp-hd">';
   h+='<div class="wp-title">&#128197; Weekly Priorities <span class="wp-date">'+weekLabel+'</span></div>';
   h+='<div style="display:flex;gap:8px;align-items:center">';
+  // Week-start day selector
+  var wsd=getWeekStartDay();
+  h+='<span style="font-size:9px;color:#7a6000;font-family:JetBrains Mono,monospace">Week starts</span>';
+  h+='<select onchange="setWeekStartDay(this.value)" style="padding:3px 6px;border:1px solid #f5c842;border-radius:6px;font-size:10px;font-family:JetBrains Mono,monospace;background:#fff;color:#7a6000;cursor:pointer">';
+  for(var wd=0;wd<7;wd++){
+    h+='<option value="'+wd+'"'+(wd===wsd?' selected':'')+'>'+DAY_NAMES_SHORT[wd]+'</option>';
+  }
+  h+='</select>';
   h+='<span style="font-family:JetBrains Mono,monospace;font-size:9px;color:#7a6000">'+allStarred.length+' goal'+(allStarred.length!==1?'s':'')+'</span>';
   h+='<button class="tdp-reset-btn" onclick="doStarReset()">&#10005; Clear</button>';
   h+='</div></div>';
@@ -1837,10 +1874,11 @@ function renderWeeklyPriorities(){
   h+='</colgroup>';
   h+='<thead><tr>';
   h+='<th class="wp-th-sys">&#9881; Systems</th>';
+  var daysShort=getDaysShort();
   weekDays.forEach(function(ds,idx){
     var isT=isToday(ds);
     var dayNum=parseInt(ds.split('-')[2]);
-    h+='<th class="wp-th-day'+(isT?' wp-today':'')+'">'+DAYS_SHORT[idx]+'<br><span style="font-size:8px;font-weight:400">'+dayNum+'</span></th>';
+    h+='<th class="wp-th-day'+(isT?' wp-today':'')+'">'+daysShort[idx]+'<br><span style="font-size:8px;font-weight:400">'+dayNum+'</span></th>';
   });
   h+='</tr></thead><tbody>';
 
@@ -2909,8 +2947,8 @@ function renderHabits(){
         const date=new Date(y,m-1,d);
         const dow=date.getDay();
         const isToday=isCur()&&d===today;
-        const isFri=dow===5;
-        const borderStyle=isFri?'border-left:2.5px solid var(--mauve);':'';
+        const isWeekStart=dow===getWeekStartDay();
+        const borderStyle=isWeekStart?'border-left:2.5px solid var(--mauve);':'';
         html+=`<th class="${isToday?'today-col':''}" style="${borderStyle}" title="${date.toLocaleDateString('en-IN',{weekday:'short',day:'numeric'})}">${d}<br><span style="font-size:8px;font-weight:400">${dayLetters[dow]}</span></th>`;
       });
       
@@ -2936,8 +2974,8 @@ function renderHabits(){
             const isToday=isCur()&&d===today;
             const isFuture=isCur()&&d>today;
             const dd=new Date(y,m-1,d);
-            const isFri2=dd.getDay()===5;
-            html+=`<td class="day-cell${isToday?' today-col':''}" ${isFri2?'style="border-left:2.5px solid var(--mauve)"':''}>
+            const isWeekStart2=dd.getDay()===getWeekStartDay();
+            html+=`<td class="day-cell${isToday?' today-col':''}" ${isWeekStart2?'style="border-left:2.5px solid var(--mauve)"':''}>
               <div class="day-check${checked?' checked':''}${isToday?' today-check':''}"
                 onclick="${!isOld&&!isFuture?`toggleHabitDay('${cat.id}','${h.id}',${d})`:''}">✓</div></td>`;
           });
